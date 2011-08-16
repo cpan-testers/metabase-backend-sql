@@ -8,6 +8,7 @@ package Metabase::Index::SQLite;
 use Moose;
 use MooseX::Types::Path::Class;
 
+use Data::Stream::Bulk::Callback;
 use DBD::SQLite;
 use DBIx::RunSQL;
 use DBIx::Simple;
@@ -54,49 +55,12 @@ sub add {
 
     my $metadata = $self->clone_metadata( $fact );
 
-    my $i = 0;
-    my @attributes;
-    foreach my $key ( keys %$metadata ) {
-        my $value = $metadata->{$key};
-        push @attributes,
-            "Attribute.$i.Name"    => $key,
-            "Attribute.$i.Value"   => $value,
-            # XXX not using replace is an optimization -- dagolden, 2010-04-29
-#            "Attribute.$i.Replace" => 'true'; # XXX optimization -- dagolden, 2010-04-29
-        $i++;
-    }
-
-    my $response = $self->simpledb->send_request(
-        'PutAttributes',
-        {   DomainName => $self->domain,
-            ItemName   => lc $fact->guid,
-            @attributes,
-        }
-    );
+    # add it
 }
-
-my $_count_extractor = sub {
-  my $response = shift;
-  my $items = $response->{SelectResult}{Item};
-
-  # the following may not be necessary as of SimpleDB::Class 1.0000
-  $items = [ $items ] unless ref $items eq 'ARRAY';
-
-  my $count = 0;
-  for my $i (@$items) {
-    next unless $i->{Name} eq 'Domain';
-    $count += $i->{Attribute}{Value};
-  }
-
-  return $count, $count;
-};
 
 sub count {
   my ( $self, %spec) = @_;
-  my ($sql, $limit) = $self->_get_search_sql("select count(*)", \%spec );
-  return Data::Stream::Bulk::Callback->new(
-    callback => $self->_get_fetch_callback($sql, $limit, $_count_extractor)
-  );
+  # why is this a Bulk object in other backends?
 }
 
 my $_item_extractor = sub {
@@ -112,65 +76,17 @@ my $_item_extractor = sub {
 
 sub query {
   my ( $self, %spec) = @_;
-  my ($sql, $limit) = $self->_get_search_sql("select ItemName()", \%spec );
   return Data::Stream::Bulk::Callback->new(
-    callback => $self->_get_fetch_callback($sql, $limit, $_item_extractor)
+    callback => sub { ... }
   );
 }
 
-sub _generate_fetch_callback {
-  my ($self, $sql, $limit, $extractor) = @_;
-    # prepare request
-  my $request = { SelectExpression => $sql };
-  my $total_count = 0;
-  my $finished = 0;
-
-  return sub {
-    return [] if $finished;
-    FETCH: {
-      my ($response, $result, $query_count);
-      try {
-        $response = $self->simpledb->send_request( 'Select', $request )
-      } catch {
-        Carp::confess("Got error '$_' from '$sql'");
-      };
-
-      if ( exists $response->{SelectResult}{Item} ) {
-        ($result, $query_count) = $extractor->($response);
-        $total_count += $query_count;
-      }
-
-      # If SimpleDB promises more data, then update the request
-      if ( exists $response->{SelectResult}{NextToken} ) {
-        $request->{NextToken} = $response->{SelectResult}{NextToken};
-        # if promised more, but have nothing now, repeat query right away
-        redo FETCH unless @$result;
-        # if we have more than we need, flag that we're done
-        $finished++ if $limit && $total_count >= $limit;
-      }
-      # No promise of more, so we're done
-      else {
-        $finished++;
-      }
-
-      # return whatever we got
-      return $result;
-    }
-  };
-}
-
-# DO NOT lc() GUID
 sub delete {
     my ( $self, $guid ) = @_;
 
     Carp::confess("can't delete without a GUID") unless $guid;
 
-    my $response = $self->simpledb->send_request(
-        'DeleteAttributes',
-        {   DomainName => $self->domain,
-            ItemName   => $guid,
-        }
-    );
+    # delete
 }
 
 #--------------------------------------------------------------------------#
