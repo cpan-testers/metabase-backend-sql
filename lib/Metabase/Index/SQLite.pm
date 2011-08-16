@@ -5,13 +5,15 @@ use warnings;
 package Metabase::Index::SQLite;
 # VERSION
 
+use Moose;
+use MooseX::Types::Path::Class;
+
 use DBD::SQLite;
 use DBIx::RunSQL;
 use DBIx::Simple;
+use Path::Class ();
 use SQL::Translator;
 use Try::Tiny;
-
-use Moose;
 
 with 'Metabase::Index';
 
