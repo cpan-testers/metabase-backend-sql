@@ -9,12 +9,13 @@ package Metabase::Archive::SQLite;
 use Moose;
 use Moose::Util::TypeConstraints;
 use MooseX::Types::Path::Class;
+use Path::Class ();
 
 use Metabase::Fact;
 use Carp        ();
 use Data::GUID  ();
+use Data::Stream::Bulk::DBIC ();
 use JSON 2      ();
-use Path::Class ();
 use DBI         1 ();
 use DBD::SQLite 1 ();
 use Compress::Zlib 2 qw(compress uncompress);
@@ -139,11 +140,23 @@ sub extract {
     };
 }
 
+sub delete {
+    my ( $self, $guid ) = @_;
+    $self->schema->resultset('Fact')->find(lc $guid)->delete;
+}
+
+sub iterator {
+  my ($self) = @_;
+  return Data::Stream::Bulk::DBIC->new(
+    resultset => scalar($self->schema->resultset("Fact")->search_rs)
+  );
+}
+
 1;
 
 __END__
 
-=for Pod::Coverage::TrustPod store extract
+=for Pod::Coverage::TrustPod store extract delete iterator initialize
 
 =head1 SYNOPSIS
 
@@ -161,31 +174,7 @@ Store facts in a SQLite database.
 
 See L<Metabase::Archive> and L<Metabase::Librarian>.
 
-TODO: document optional C<compressed> option (default 1) and
-C<schema> option (sensible default provided).
-
-=head1 BUGS
-
-Please report any bugs or feature using the CPAN Request Tracker.  
-Bugs can be submitted through the web interface at 
-L<http://rt.cpan.org/Dist/Display.html?Queue=Metabase>
-
-When submitting a bug or request, please include a test-file or a patch to an
-existing test-file that illustrates the bug or desired feature.
-
-=head1 COPYRIGHT AND LICENSE
-
- Portions Copyright (c) 2008-2009 by Leon Brocard
-
-Licensed under terms of Perl itself (the "License").
-You may not use this file except in compliance with the License.
-A copy of the License was distributed with this file or you may obtain a 
-copy of the License from http://dev.perl.org/licenses/
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+TODO: document optional C<compressed> option (default 1), C<synchronized>
+option and C<schema> option (sensible default provided).
 
 =cut
