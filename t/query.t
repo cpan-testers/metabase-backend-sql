@@ -3,34 +3,27 @@ use strict;
 use warnings;
 
 use Test::More 0.92;
-use Test::Deep;
-use Test::Metabase::Setup;
-
+use Test::Routine;
+use Test::Routine::Util;
+use Test::Deep qw/cmp_deeply/;
 use Try::Tiny;
 use re 'regexp_pattern';
 
-use lib 't/lib';
-use Test::Metabase::StringFact;
+use lib "t/lib";
 
-#-------------------------------------------------------------------------#
-# Setup
-#--------------------------------------------------------------------------#
+with 'Metabase::Test::Index::SQLite';
 
-setup();
-my $testdb = 'test' . int(rand(2**21));
-
-#--------------------------------------------------------------------------#
-# Tests here
-#--------------------------------------------------------------------------#
-
-require_ok( 'Metabase::Index::MongoDB' );
-my $index = new_ok( 'Metabase::Index::MongoDB', [ db_name => $testdb ] );
+has index => (
+  is => 'ro',
+  does => 'Metabase::Index',
+  lazy_build => 1,
+);
 
 my @cases = (
   {
     label => 'single equality',
     input => { -where => [ -eq => 'content.grade' => 'PASS' ] },
-    output => [ { 'content|grade' => 'PASS' }, {} ],
+    output => [ q{where "content.grade" = 'PASS'}, undef ],
   },
   {
     label => "'-and' with equality",
@@ -43,108 +36,93 @@ my @cases = (
       ],
     },
     output => [
-      {
-        'content|grade' => 'PASS',
-        'content|osname' => 'MSWin32',
-      },
-      {}
+      q{where ("content.grade" = 'PASS') and ("content.osname" = 'MSWin32')},
+      undef,
     ],
   },
   {
     label => 'inequality',
     input => { -where => [ -ne => 'content.grade' => 'PASS' ] },
-    output => [ {'content|grade' => { '$ne' => 'PASS' }}, {} ],
+    output => [ q{where "content.grade" != 'PASS'}, undef ],
   },
   {
     label => 'greater than',
     input => { -where => [ -gt => 'content.grade' => 'PASS' ] },
-    output => [ {'content|grade' => { '$gt' => 'PASS' }}, {} ],
+    output => [ q{where "content.grade" > 'PASS'}, undef ],
   },
   {
     label => 'less than',
     input => { -where => [ -lt => 'content.grade' => 'PASS' ] },
-    output => [ {'content|grade' => { '$lt' => 'PASS' }}, {} ],
+    output => [ q{where "content.grade" < 'PASS'}, undef ],
   },
   {
     label => 'greater than or equal to',
     input => { -where => [ -ge => 'content.grade' => 'PASS' ] },
-    output => [ {'content|grade' => { '$gte' => 'PASS' }}, {} ],
+    output => [ q{where "content.grade" >= 'PASS'}, undef ],
   },
   {
     label => 'less than or equal to',
     input => { -where => [ -le => 'content.grade' => 'PASS' ] },
-    output => [ {'content|grade' => { '$lte' => 'PASS' }}, {} ],
+    output => [ q{where "content.grade" <= 'PASS'}, undef ],
   },
   {
     label => 'between',
     input => { -where => [ -between => 'content.size' => 10 => 20 ] },
-    output => [ {'content|size' => { '$gte' => 10, '$lte' => 20 }}, {} ],
+    output => [ q{where "content.size" between '10' and '20'}, undef ],
   },
   {
     label => 'like',
     input => { -where => [ -like => 'core.resource' => '%JOHNDOE%'  ] },
-    output => [
-      {
-        'core|resource' => { '$regex' => [regexp_pattern(qr/.*JOHNDOE.*/)]->[0] }
-      },
-      {}
-    ],
+    output => [ q{where "core.resource" like '%JOHNDOE%'}, undef ],
   },
   {
     label => 'and',
     input => { -where => [ -and => [ -gt => 'content.size' => 5 ], [ -lt => 'content.size' => 10 ] ] },
-    output => [
-      { 'content|size' => { '$gt' => 5, '$lt' => 10 } },
-      {}
-    ],
+    output => [ q{where ("content.size" > '5') and ("content.size" < '10')}, undef ],
   },
   {
     label => 'or',
     input => { -where => [ -or => [ -gt => 'content.size' => 15 ], [ -lt => 'content.size' => 5 ] ] },
-    output => [
-      { '$or' => [{ 'content|size' => { '$gt' => 15}}, { 'content|size' => { '$lt' => 5 } }] },
-      {}
-    ],
+    output => [ q{where ("content.size" > '15') or ("content.size" < '5')}, undef ],
   },
   {
     label => 'not',
     input => { -where => [ -not => [ -gt => 'content.size' => 5 ] ] },
-    output => [
-      { 'content|size' => { '$not' => { '$gt' => 5 } } },
-      {}
-    ],
+    output => [q{where NOT ("content.size" > '5')}, undef],
   },
   {
     label => 'ordering',
     input => {
       -where => [ -eq => 'content.grade' => 'PASS' ],
-      -order => [ -desc => 'core.updated_time', -asc => 'core.resource' ],
+      -order => [ -desc => 'content.grade' ],
     },
     output => [
-      { 'content|grade' => 'PASS' },
-      { sort_by => { 'core|updated_time' => -1, 'core|resource' => 1} },
+      q{where "content.grade" = 'PASS' order by "content.grade" DESC},
+      undef,
     ],
   },
   {
     label => 'ordering plus limit',
     input => {
       -where => [ -eq => 'content.grade' => 'PASS' ],
-      -order => [ -desc => 'core.updated_time', -asc => 'core.resource' ],
-      -limit => 10,
+      -order => [ -desc => 'content.grade' ],
+      -limit => 10
     },
     output => [
-      { 'content|grade' => 'PASS' },
-      {
-        sort_by => { 'core|updated_time' => -1, 'core|resource' => 1},
-        limit => 10
-      },
+      q{where "content.grade" = 'PASS' order by "content.grade" DESC limit 10},
+      10,
     ],
   },
 );
 
-for my $c ( @cases ) {
-  my @query = $index->get_native_query( $c->{input} );
-  cmp_deeply( \@query, $c->{output}, $c->{label} );
-}
+test "query tests" => sub {
+  my $self = shift;
+  for my $c ( @cases ) {
+    my @query = $self->index->get_native_query( $c->{input} );
+    cmp_deeply( \@query, $c->{output}, $c->{label} );
+  }
+};
+
+run_me;
 
 done_testing;
