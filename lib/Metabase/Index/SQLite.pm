@@ -16,26 +16,9 @@ use Path::Class ();
 use SQL::Translator;
 use Try::Tiny;
 
+with 'Metabase::Backend::SQLite';
 with 'Metabase::Index';
 
-has 'filename' => (
-    is       => 'ro',
-    isa      => 'Path::Class::File',
-    coerce   => 1,
-    required => 1,
-);
-
-has 'compressed' => (
-    is      => 'rw',
-    isa     => 'Bool',
-    default => 1,
-);
-
-has 'synchronous' => (
-    is      => 'rw',
-    isa     => 'Bool',
-    default => 0,
-);
 
 sub _get_search_sql {
   my ( $self, $select, $spec ) = @_;

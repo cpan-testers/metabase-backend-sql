@@ -22,25 +22,13 @@ use Compress::Zlib 2 qw(compress uncompress);
 use SQL::Translator 0.11006 (); # required for deploy()
 use Metabase::Archive::Schema;
 
+with 'Metabase::Backend::SQLite';
 with 'Metabase::Archive';
-
-has 'filename' => (
-    is       => 'ro',
-    isa      => 'Path::Class::File',
-    coerce   => 1,
-    required => 1,
-);
 
 has 'compressed' => (
     is      => 'rw',
     isa     => 'Bool',
     default => 1,
-);
-
-has 'synchronous' => (
-    is      => 'rw',
-    isa     => 'Bool',
-    default => 0,
 );
 
 has 'schema' => (
