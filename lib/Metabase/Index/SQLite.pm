@@ -8,25 +8,158 @@ package Metabase::Index::SQLite;
 use Moose;
 use MooseX::Types::Path::Class;
 
+use Class::Load qw/try_load_class/;
 use Data::Stream::Bulk::Callback;
 use DBD::SQLite;
 use DBIx::RunSQL;
 use DBIx::Simple;
+use SQL::Translator::Schema;
+use SQL::Translator::Diff;
+use SQL::Translator::Utils qw/normalize_name/;
 use Path::Class ();
 use SQL::Translator;
 use Try::Tiny;
+use Metabase::Fact;
+use Storable qw/nfreeze/;
 
 with 'Metabase::Backend::SQLite';
 with 'Metabase::Index';
 
+has dbis => (
+  is => 'ro',
+  isa => 'DBIx::Simple',
+  lazy_build => 1,
+  handles => [qw/dbh/],
+);
+
+has schema => (
+  is => 'ro',
+  isa => 'SQL::Translator::Schema',
+  lazy_build => 1,
+);
+
+sub _build_dbis {
+  my ($self) = @_;
+  my $fn = $self->filename;
+  my $dbis = DBIx::Simple->connect("dbi:SQLite:dbname=$fn","","")
+    or die "Could not connect to $fn\n";
+  return $dbis;
+}
+
+sub _build_schema {
+  my $self = shift;
+  return SQL::Translator::Schema->new(
+    name => 'Metabase',
+    database => 'SQLite',
+  );
+}
+
+sub initialize {
+  my ($self, $classes, $resources) = @_;
+  my $schema = $self->schema;
+  # Core table
+  $schema->add_table(
+    $self->_table_from_meta( 'core', Metabase::Fact->core_metadata_types )
+  );
+  # Fact tables
+  my @expanded =
+    map { $_->fact_classes }
+    grep { $_->isa("Metabase::Report") }
+    @$classes;
+  for my $c ( @$classes, @expanded ) {
+    next unless try_load_class($c);
+#    warn "Scanning $c\n";
+    my $name = normalize_name( lc($c->type) );
+    my $types = $c->content_metadata_types;
+    next unless keys %$types;
+    $schema->add_table(
+      $self->_table_from_meta( $name, $types )
+    );
+  }
+  # Resource tables
+  for my $r ( @$resources ) {
+    next unless try_load_class($r);
+    my $name = $r;
+    $name =~ s/^Metabase::Resource:://;
+    $name =~ s/::/_/g;
+    $name = normalize_name( lc $name );
+    my $types = $r->metadata_types;
+    $schema->add_table(
+      $self->_table_from_meta( $name, $types )
+    );
+  }
+  # Blow up if this doesn't seem OK
+  $schema->is_valid or die "Could not generate schema: $schema->error";
+#  use Data::Dumper;
+#  warn "Schema: " . Dumper($schema);
+
+
+  # See what we already have
+  my $existing = SQL::Translator->new(
+    parser => 'DBI',
+    dbh => $self->dbh,
+  );
+  $existing->translate;
+  my $target = SQL::Translator->new(
+    parser => 'Storable',
+    data => nfreeze($schema),
+    producer => 'SQLite',
+  );
+  my $out_sql = $target->translate;
+  $target = SQL::Translator->new(
+    parser => 'SQLite',
+    data => $out_sql,
+  );
+
+  my $diff = SQL::Translator::Diff::schema_diff(
+    $existing->schema, 'SQLite', $target->schema, 'SQLite'
+  );
+
+  # DBIx::RunSQL requires a file (ugh)
+  my ($fh, $sqlfile) = File::Temp::tempfile();
+  print {$fh} $diff;
+  close $fh;
+#  warn "Schema Diff: $diff\n"; # XXX
+
+  unless ( $diff =~ /-- No differences found/i ) {
+    DBIx::RunSQL->create(
+      dbh => $self->dbh,
+      sql => $sqlfile,
+    );
+  }
+
+  # must reset the connection
+  $self->clear_dbis;
+
+  return;
+}
+
+my %typemap = (
+  '//str'   => 'varchar(255)',
+  '//num'   => 'integer',
+  '//bool'  => 'boolean',
+);
+
+sub _table_from_meta {
+  my ($self, $name, $typehash) = @_;
+  my $table = SQL::Translator::Schema::Table->new( name => $name );
+  for my $k ( sort keys %$typehash ) {
+#    warn "Adding $k\n";
+    $table->add_field(
+      name => normalize_name($k),
+      data_type => $typemap{$typehash->{$k}} || "//str",
+    );
+  }
+  return $table;
+}
 
 sub _get_search_sql {
   my ( $self, $select, $spec ) = @_;
 
   my ($where, $limit) = $self->get_native_query($spec);
 
-  my $domain = $self->domain;
-  my $sql = qq{$select from `$domain` $where};
+  my $db = $self->n;
+  my $sql = qq{$select from "XXXXX" $where};
 
   return ($sql, $limit);
 }
@@ -43,22 +176,13 @@ sub add {
 
 sub count {
   my ( $self, %spec) = @_;
-  # why is this a Bulk object in other backends?
+
+  # count it
 }
-
-my $_item_extractor = sub {
-  my $response = shift;
-  my $items = $response->{SelectResult}{Item};
-
-  # the following may not be necessary as of SimpleDB::Class 1.0000
-  $items = [ $items ] unless ref $items eq 'ARRAY';
-
-  my $result = [ map { $_->{Name} } @$items ];
-  return $result, scalar @$result;
-};
 
 sub query {
   my ( $self, %spec) = @_;
+
   return Data::Stream::Bulk::Callback->new(
     callback => sub { ... }
   );
@@ -78,6 +202,7 @@ sub delete {
 
 sub _quote_field {
   my ($self, $field) = @_;
+  $field = normalize_name($field);
   return qq{"$field"};
 }
 
