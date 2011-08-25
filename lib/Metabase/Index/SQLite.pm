@@ -9,10 +9,13 @@ use Moose;
 use MooseX::Types::Path::Class;
 
 use Class::Load qw/try_load_class/;
-use Data::Stream::Bulk::Callback;
+use Data::Stream::Bulk::Array;
+use Data::Stream::Bulk::Nil;
 use DBD::SQLite;
 use DBIx::RunSQL;
 use DBIx::Simple;
+use List::AllUtils qw/uniq/;
+use SQL::Abstract;
 use SQL::Translator::Schema;
 use SQL::Translator::Diff;
 use SQL::Translator::Utils qw/normalize_name/;
@@ -38,6 +41,46 @@ has schema => (
   lazy_build => 1,
 );
 
+has _requested_content_type => (
+  is => 'rw',
+  isa => 'Str',
+  clearer => '_clear_requested_content_type',
+);
+
+has _requested_resource_type => (
+  is => 'rw',
+  isa => 'Str',
+  clearer => '_clear_requested_resource_type',
+);
+
+has _query_fields => (
+  traits => ['Array'],
+  is => 'ro',
+  isa => 'ArrayRef[Str]',
+  lazy_build => 1,
+  handles => {
+    _push_query_fields => 'push',
+    _grep_query_fields => 'grep',
+    _all_query_fields => 'elements',
+  },
+);
+
+has _content_tables => (
+  traits => ['Array'],
+  is => 'ro',
+  isa => 'ArrayRef[Str]',
+  lazy_build => 1,
+  handles => {
+    _push_content_tables => 'push',
+    _grep_content_tables => 'grep',
+    _all_content_tables => 'elements',
+  },
+);
+
+sub _build__content_tables { return [] }
+
+sub _build__query_fields { return [] }
+
 sub _build_dbis {
   my ($self) = @_;
   my $fn = $self->filename;
@@ -55,11 +98,14 @@ sub _build_schema {
 }
 
 sub initialize {
+  use IO::Handle;
+  STDERR->autoflush(1); # XXX
+  STDOUT->autoflush(1); # XXX
   my ($self, $classes, $resources) = @_;
   my $schema = $self->schema;
   # Core table
   $schema->add_table(
-    $self->_table_from_meta( 'core', Metabase::Fact->core_metadata_types )
+    $self->_table_from_meta( 'core_meta', Metabase::Fact->core_metadata_types )
   );
   # Fact tables
   my @expanded =
@@ -72,6 +118,7 @@ sub initialize {
     my $name = normalize_name( lc($c->type) );
     my $types = $c->content_metadata_types;
     next unless keys %$types;
+    $self->_push_content_tables($name);
     $schema->add_table(
       $self->_table_from_meta( $name, $types )
     );
@@ -84,6 +131,7 @@ sub initialize {
     $name =~ s/::/_/g;
     $name = normalize_name( lc $name );
     my $types = $r->metadata_types;
+    next unless keys %$types;
     $schema->add_table(
       $self->_table_from_meta( $name, $types )
     );
@@ -97,39 +145,73 @@ sub initialize {
   # See what we already have
   my $existing = SQL::Translator->new(
     parser => 'DBI',
-    dbh => $self->dbh,
+    parser_args => {
+#      dsn => 'dbi:SQLite:dbname=' . $self->filename,
+      dbh => $self->dbis->dbh,
+    },
+    producer => 'SQLite',
+    show_warnings => 0, # suppress warning from empty DB
   );
-  $existing->translate;
-  my $target = SQL::Translator->new(
+  {
+    # shut up P::RD when there is no text -- the SQLite parser
+    # forces things on when loaded.  Gross.
+    no warnings 'once';
+    require SQL::Translator::Parser::SQLite;
+    local *main::RD_ERRORS;
+    local *main::RD_WARN;
+    local *main::RD_HINT;
+    my $existing_sql = $existing->translate();
+    #  warn "Existing schema: " . $existing_sql;
+  }
+
+  # Convert our target schema
+  my $fake = SQL::Translator->new(
     parser => 'Storable',
-    data => nfreeze($schema),
     producer => 'SQLite',
   );
-  my $out_sql = $target->translate;
-  $target = SQL::Translator->new(
+  my $fake_sql = $fake->translate( \( nfreeze($schema) ) );
+#  warn "Fake schema: $fake_sql";
+
+  my $target = SQL::Translator->new(
     parser => 'SQLite',
-    data => $out_sql,
+    producer => 'SQLite',
   );
+  my $target_sql = $target->translate(\$fake_sql);
+#  warn "Target schema: $target_sql";
 
   my $diff = SQL::Translator::Diff::schema_diff(
     $existing->schema, 'SQLite', $target->schema, 'SQLite'
   );
 
+  # Fix up BEGIN/COMMIT
+  $diff =~ s/BEGIN;/BEGIN TRANSACTION;/mg;
+  $diff =~ s/COMMIT;/COMMIT TRANSACTION;/mg;
+  # Strip comments
+  $diff =~ s/^--[^\n]*$//msg;
+  # strip empty lines
+  $diff =~ s/^\n//msg;
+
   # DBIx::RunSQL requires a file (ugh)
   my ($fh, $sqlfile) = File::Temp::tempfile();
   print {$fh} $diff;
   close $fh;
-#  warn "Schema Diff: $diff\n"; # XXX
+#  warn "Schema Diff:\n$diff\n"; # XXX
 
+  $self->clear_dbis; # ensure we re-initailize handle
   unless ( $diff =~ /-- No differences found/i ) {
     DBIx::RunSQL->create(
       dbh => $self->dbh,
       sql => $sqlfile,
     );
+    $self->dbh->disconnect;
   }
 
   # must reset the connection
   $self->clear_dbis;
+  $self->dbis; # rebuild
+
+#  my ($count) = $self->dbis->query(qq{select count(*) from "core"})->list;
+#  warn "Initialized with $count records";
 
   return;
 }
@@ -142,6 +224,7 @@ my %typemap = (
 
 sub _table_from_meta {
   my ($self, $name, $typehash) = @_;
+  $typehash->{guid} = "//str"; # always the PK
   my $table = SQL::Translator::Schema::Table->new( name => $name );
   for my $k ( sort keys %$typehash ) {
 #    warn "Adding $k\n";
@@ -153,13 +236,41 @@ sub _table_from_meta {
   return $table;
 }
 
+sub _content_table {
+  my ($self, $name) = @_;
+  return normalize_name( lc $name );
+}
+
 sub _get_search_sql {
   my ( $self, $select, $spec ) = @_;
 
+  # clear type constraints before analyzing query
+  $self->_clear_requested_content_type;
+  $self->_clear_requested_resource_type;
+  $self->_clear_query_fields;
+
   my ($where, $limit) = $self->get_native_query($spec);
 
-  my $db = $self->n;
-  my $sql = qq{$select from "XXXXX" $where};
+  my $saw_content_field = $self->_grep_query_fields(sub { $_ =~ qr{^content\.} });
+  my $saw_resource_field = $self->_grep_query_fields(sub { $_ =~ qr{^resource\.} });
+
+  # XXX nothing with resource right now -- dagolden, 2011-08-24
+  if ( $saw_content_field && ! $self->_requested_content_type ) {
+    Carp::confess("query requested content metadata without content type constraint");
+  }
+
+  my $sql = qq{$select};
+  # based on requests, conduct joins
+  if ( my $content_type = $self->_requested_content_type ) {
+    my $content_table = $self->_content_table($content_type);
+    return
+      if ! $self->_grep_content_tables( sub { $_ eq $content_table } );
+    $sql .= qq{ from "core_meta" core join "$content_table" content}
+          . qq{ on core.guid = content.guid $where};
+  }
+  else {
+    $sql .= qq{ from "core_meta" core $where};
+  }
 
   return ($sql, $limit);
 }
@@ -169,22 +280,58 @@ sub add {
 
     Carp::confess("can't index a Fact without a GUID") unless $fact->guid;
 
-    my $metadata = $self->clone_metadata( $fact );
+    try {
+      $self->dbis->begin_work();
+      my $core_meta = $fact->core_metadata;
+      $core_meta->{resource} = "$core_meta->{resource}"; #stringify obj
+#        use Data::Dumper;
+#        warn "Adding " . Dumper $core_meta;
+      $self->dbis->insert( 'core_meta', $core_meta );
+      my $content_meta = $fact->content_metadata;
+      # not all facts have content metadata
+      if ( keys %$content_meta ) {
+        $content_meta->{guid} = $fact->guid;
+#        use Data::Dumper;
+#        warn "Adding " . Dumper $content_meta;
+        my $content_table = $self->_content_table( $fact->type );
+        $self->dbis->insert( $content_table, $content_meta ); 
+      }
+      # XXX eventually, add resource metadata -- dagolden, 2011-08-24
+      $self->dbis->commit;
+    }
+    catch {
+      $self->dbis->rollback;
+      Carp::confess("Error inserting record: $_");
+    };
 
-    # add it
 }
 
 sub count {
   my ( $self, %spec) = @_;
 
-  # count it
+  my ($sql, $limit) = $self->_get_search_sql("select count(*)", \%spec);
+  
+  return 0 unless $sql;
+#  warn "COUNT: $sql\n";
+
+  my ($count) = $self->dbis->query($sql)->list;
+
+  return $count;
 }
 
 sub query {
   my ( $self, %spec) = @_;
 
-  return Data::Stream::Bulk::Callback->new(
-    callback => sub { ... }
+  my ($sql, $limit) = $self->_get_search_sql("select core.guid", \%spec);
+
+  return Data::Stream::Bulk::Nil->new
+    unless $sql;
+
+  warn "QUERY: $sql\n";
+  my $result = $self->dbis->query($sql);
+
+  return Data::Stream::Bulk::Array->new(
+    array => [ $result->list ]
   );
 }
 
@@ -193,6 +340,20 @@ sub delete {
 
     Carp::confess("can't delete without a GUID") unless $guid;
 
+    try {
+      $self->dbis->begin_work();
+      $self->dbis->delete( 'core_meta', { 'guid' => $guid } );
+      # XXX need to track _content_tables
+      for my $table ( uniq $self->_all_content_tables ) {
+        $self->dbis->delete( $table, { 'guid' => $guid } );
+      }
+      # XXX eventually, add resource metadata -- dagolden, 2011-08-24
+      $self->dbis->commit;
+    }
+    catch {
+      $self->dbis->rollback;
+      Carp::confess("Error deleting record: $_");
+    };
     # delete
 }
 
@@ -200,10 +361,19 @@ sub delete {
 # required by Metabase::Query
 #--------------------------------------------------------------------------#
 
+# We need to track type constraints to determine which tables to join
+before op_eq => sub {
+  my ($self, $field, $value) = @_;
+  if ($field eq 'core.type') {
+    $self->_requested_content_type( $value );
+  }
+};
+
 sub _quote_field {
   my ($self, $field) = @_;
-  $field = normalize_name($field);
-  return qq{"$field"};
+  $self->_push_query_fields($field);
+#  my ($first,$second) = $field =~ m{^([^.]+).(.*)$};
+  return qq{$field};
 }
 
 sub _quote_val {

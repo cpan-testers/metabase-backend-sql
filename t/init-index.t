@@ -22,6 +22,15 @@ has index => (
   lazy_build => 1,
 );
 
+sub _build_index {
+  my $self = shift;
+  my $index = Metabase::Index::SQLite->new(
+    filename => catfile( $self->tempdir, "test" . int(rand(2**31)) ),
+  );
+#  $index->initialize;
+  return $index;
+}
+
 test "core only init" => sub {
   my $self = shift;
   $self->clear_index;

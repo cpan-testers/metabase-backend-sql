@@ -9,7 +9,22 @@ use File::Spec::Functions qw/catfile/;
 
 use Metabase::Index::SQLite;
 
+use lib 't/lib';
+
 with 'Metabase::Test::Index::SQLite';
+
+sub _build_index {
+  my $self = shift;
+  my $index = Metabase::Index::SQLite->new(
+    filename => catfile( $self->tempdir, "test-metabase.sqlite" ),
+  );
+  $index->initialize(
+    [ qw/Metabase::Test::Fact/ ],
+  );
+  return $index;
+}
+
+after 'clear_index' => sub { shift->clear_tempdir };
 
 run_tests(
   "Run index tests on Metabase::Index::SQLite",
