@@ -20,6 +20,7 @@ sub _build_index {
   );
   $index->initialize(
     [ qw/Metabase::Test::Fact/ ],
+    [ qw/Metabase::Resource::cpan::distfile/ ],
   );
   return $index;
 }

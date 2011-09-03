@@ -102,6 +102,7 @@ sub initialize {
   STDERR->autoflush(1); # XXX
   STDOUT->autoflush(1); # XXX
   my ($self, $classes, $resources) = @_;
+  @$resources = uniq ( @$resources, "Metabase::Resource::metabase::user" );
   my $schema = $self->schema;
   # Core table
   $schema->add_table(
@@ -126,7 +127,7 @@ sub initialize {
   # Resource tables
   for my $r ( @$resources ) {
     next unless try_load_class($r);
-    my $name = $self->re;
+    my $name = $r;
     $name =~ s/^Metabase::Resource:://;
     $name =~ s/::/_/g;
     $name = normalize_name( lc $name );
@@ -264,20 +265,22 @@ sub _get_search_sql {
   if ( $saw_content_field && ! $self->_requested_content_type ) {
     Carp::confess("query requested content metadata without content type constraint");
   }
+  if ( $saw_resource_field && ! $self->_requested_resource_type ) {
+    Carp::confess("query requested resource metadata without resource type constraint");
+  }
 
-  my $sql = qq{$select};
   # based on requests, conduct joins
+  my @from = qq{from "core_meta" core};
   if ( my $content_type = $self->_requested_content_type ) {
     my $content_table = $self->_content_table($content_type);
-    return
-      if ! $self->_grep_content_tables( sub { $_ eq $content_table } );
-    $sql .= qq{ from "core_meta" core join "$content_table" content}
-          . qq{ on core.guid = content._guid $where};
+    push @from, qq{join "$content_table" content on core.guid = content._guid};
   }
-  else {
-    $sql .= qq{ from "core_meta" core $where};
+  if ( my $resource_type = $self->_requested_resource_type ) {
+    my $resource_table = $self->_resource_table($resource_type);
+    push @from, qq{join "$resource_table" resource on core.guid = resource._guid};
   }
 
+  my $sql = join(" ", $select, @from, $where);
   return ($sql, $limit);
 }
 
@@ -381,6 +384,9 @@ before op_eq => sub {
   my ($self, $field, $value) = @_;
   if ($field eq 'core.type') {
     $self->_requested_content_type( $value );
+  }
+  if ($field eq 'resource.type') {
+    $self->_requested_resource_type( $value );
   }
 };
 
