@@ -126,7 +126,7 @@ sub initialize {
   # Resource tables
   for my $r ( @$resources ) {
     next unless try_load_class($r);
-    my $name = $r;
+    my $name = $self->re;
     $name =~ s/^Metabase::Resource:://;
     $name =~ s/::/_/g;
     $name = normalize_name( lc $name );
@@ -224,7 +224,7 @@ my %typemap = (
 
 sub _table_from_meta {
   my ($self, $name, $typehash) = @_;
-  $typehash->{guid} = "//str"; # always the PK
+  $typehash->{_guid} = "//str"; # always the PK
   my $table = SQL::Translator::Schema::Table->new( name => $name );
   for my $k ( sort keys %$typehash ) {
 #    warn "Adding $k\n";
@@ -238,6 +238,12 @@ sub _table_from_meta {
 
 sub _content_table {
   my ($self, $name) = @_;
+  return normalize_name( lc $name );
+}
+
+sub _resource_table {
+  my ($self, $name) = @_;
+  $name =~ s/^Metabase-Resource-//;
   return normalize_name( lc $name );
 }
 
@@ -266,7 +272,7 @@ sub _get_search_sql {
     return
       if ! $self->_grep_content_tables( sub { $_ eq $content_table } );
     $sql .= qq{ from "core_meta" core join "$content_table" content}
-          . qq{ on core.guid = content.guid $where};
+          . qq{ on core.guid = content._guid $where};
   }
   else {
     $sql .= qq{ from "core_meta" core $where};
@@ -290,13 +296,22 @@ sub add {
       my $content_meta = $fact->content_metadata;
       # not all facts have content metadata
       if ( keys %$content_meta ) {
-        $content_meta->{guid} = $fact->guid;
+        $content_meta->{_guid} = $fact->guid;
 #        use Data::Dumper;
 #        warn "Adding " . Dumper $content_meta;
         my $content_table = $self->_content_table( $fact->type );
-        $self->dbis->insert( $content_table, $content_meta ); 
+        $self->dbis->insert( $content_table, $content_meta );
       }
       # XXX eventually, add resource metadata -- dagolden, 2011-08-24
+      my $resource_meta = $fact->resource_metadata;
+      # not all facts have resource metadata
+      if ( keys %$resource_meta ) {
+        $resource_meta->{_guid} = $fact->guid;
+#        use Data::Dumper;
+#        warn "Adding " . Dumper $resource_meta;
+        my $resource_table = $self->_resource_table( $resource_meta->{type} );
+        $self->dbis->insert( $resource_table, $resource_meta );
+      }
       $self->dbis->commit;
     }
     catch {
@@ -310,7 +325,7 @@ sub count {
   my ( $self, %spec) = @_;
 
   my ($sql, $limit) = $self->_get_search_sql("select count(*)", \%spec);
-  
+
   return 0 unless $sql;
 #  warn "COUNT: $sql\n";
 
