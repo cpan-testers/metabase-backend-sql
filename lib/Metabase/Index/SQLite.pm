@@ -41,6 +41,12 @@ has schema => (
   lazy_build => 1,
 );
 
+has core_table => (
+  is => 'ro',
+  isa => 'Str',
+  default => sub { "core_meta" },
+);
+
 has _requested_content_type => (
   is => 'rw',
   isa => 'Str',
@@ -79,6 +85,20 @@ has _content_tables => (
 
 sub _build__content_tables { return [] }
 
+has _resource_tables => (
+  traits => ['Array'],
+  is => 'ro',
+  isa => 'ArrayRef[Str]',
+  lazy_build => 1,
+  handles => {
+    _push_resource_tables => 'push',
+    _grep_resource_tables => 'grep',
+    _all_resource_tables => 'elements',
+  },
+);
+
+sub _build__resource_tables { return [] }
+
 sub _build__query_fields { return [] }
 
 sub _build_dbis {
@@ -106,7 +126,7 @@ sub initialize {
   my $schema = $self->schema;
   # Core table
   $schema->add_table(
-    $self->_table_from_meta( 'core_meta', Metabase::Fact->core_metadata_types )
+    $self->_table_from_meta( $self->core_table, Metabase::Fact->core_metadata_types )
   );
   # Fact tables
   my @expanded =
@@ -133,6 +153,7 @@ sub initialize {
     $name = normalize_name( lc $name );
     my $types = $r->metadata_types;
     next unless keys %$types;
+    $self->_push_resource_tables($name);
     $schema->add_table(
       $self->_table_from_meta( $name, $types )
     );
@@ -258,10 +279,13 @@ sub _get_search_sql {
 
   my ($where, $limit) = $self->get_native_query($spec);
 
-  my $saw_content_field = $self->_grep_query_fields(sub { $_ =~ qr{^content\.} });
-  my $saw_resource_field = $self->_grep_query_fields(sub { $_ =~ qr{^resource\.} });
+  my ($saw_content_field, $saw_resource_field);
+  for my $f ( $self->_all_query_fields ) {
+    $saw_content_field++ if $f =~ qr{^content\.};
+    $saw_resource_field++ if $f =~ qr{^resource\.};
+    return unless $f =~ qr{^(?:core|content|resource)\.};
+  }
 
-  # XXX nothing with resource right now -- dagolden, 2011-08-24
   if ( $saw_content_field && ! $self->_requested_content_type ) {
     Carp::confess("query requested content metadata without content type constraint");
   }
@@ -271,17 +295,32 @@ sub _get_search_sql {
 
   # based on requests, conduct joins
   my @from = qq{from "core_meta" core};
+  return unless $self->_check_query_fields($self->core_table, 'core');
+
   if ( my $content_type = $self->_requested_content_type ) {
     my $content_table = $self->_content_table($content_type);
+    return unless $self->_check_query_fields($content_table, 'content');
     push @from, qq{join "$content_table" content on core.guid = content._guid};
   }
   if ( my $resource_type = $self->_requested_resource_type ) {
     my $resource_table = $self->_resource_table($resource_type);
+    return unless $self->_check_query_fields($resource_table, 'resource');
     push @from, qq{join "$resource_table" resource on core.guid = resource._guid};
   }
 
   my $sql = join(" ", $select, @from, $where);
   return ($sql, $limit);
+}
+
+sub _check_query_fields {
+  my ($self, $table, $type) = @_; # type 'core', 'resource' or 'content'
+  my $table_obj = $self->schema->get_table("$table");
+  for my $f ( $self->_all_query_fields ) {
+    next unless $f =~ /^$type\.(.+)$/;
+    my $name = $1;
+    return unless $table_obj->get_field($name);
+  }
+  return 1;
 }
 
 sub add {
@@ -345,7 +384,7 @@ sub query {
   return Data::Stream::Bulk::Nil->new
     unless $sql;
 
-  warn "QUERY: $sql\n";
+#  warn "QUERY: $sql\n";
   my $result = $self->dbis->query($sql);
 
   return Data::Stream::Bulk::Array->new(
@@ -363,7 +402,10 @@ sub delete {
       $self->dbis->delete( 'core_meta', { 'guid' => $guid } );
       # XXX need to track _content_tables
       for my $table ( uniq $self->_all_content_tables ) {
-        $self->dbis->delete( $table, { 'guid' => $guid } );
+        $self->dbis->delete( $table, { '_guid' => $guid } );
+      }
+      for my $table ( uniq $self->_all_resource_tables ) {
+        $self->dbis->delete( $table, { '_guid' => $guid } );
       }
       # XXX eventually, add resource metadata -- dagolden, 2011-08-24
       $self->dbis->commit;
