@@ -388,7 +388,7 @@ sub query {
   my $result = $self->dbis->query($sql);
 
   return Data::Stream::Bulk::Array->new(
-    array => [ $result->list ]
+    array => [ map { $_->[0] } $result->arrays ]
   );
 }
 
