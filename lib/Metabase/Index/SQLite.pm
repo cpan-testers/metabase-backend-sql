@@ -106,6 +106,8 @@ sub _build_dbis {
   my $fn = $self->filename;
   my $dbis = DBIx::Simple->connect("dbi:SQLite:dbname=$fn","","")
     or die "Could not connect to $fn\n";
+  my $toggle = $self->synchronous ? "ON" : "OFF";
+  $dbis->query("PRAGMA synchronous = $toggle");
   return $dbis;
 }
 
