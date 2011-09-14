@@ -140,7 +140,7 @@ sub initialize {
 #    warn "Scanning $c\n";
     my $name = normalize_name( lc($c->type) );
     my $types = $c->content_metadata_types;
-    next unless keys %$types;
+    next unless $types && keys %$types;
     $self->_push_content_tables($name);
     $schema->add_table(
       $self->_table_from_meta( $name, $types )
