@@ -24,47 +24,12 @@ use Try::Tiny;
 use Metabase::Fact;
 use Storable qw/nfreeze/;
 
+with 'Metabase::Backend::SQL';
 with 'Metabase::Index';
-
-#--------------------------------------------------------------------------#
-# attributes built by consuming classes
-#--------------------------------------------------------------------------#
-
-has [qw/dsn db_user db_pass db_type/] => (
-  is => 'ro',
-  isa => 'Str',
-  lazy_build => 1,
-);
-
-has typemap => (
-  is => 'ro',
-  isa => 'HashRef',
-  lazy_build => 1,
-);
-
-requires '_build_typemap';
-requires '_build_dsn';
-requires '_build_db_user';
-requires '_build_db_pass';
-requires '_build_db_type';
-requires '_fixup_sql_diff';
 
 #--------------------------------------------------------------------------#
 # attributes built by the role
 #--------------------------------------------------------------------------#
-
-has dbis => (
-  is => 'ro',
-  isa => 'DBIx::Simple',
-  lazy_build => 1,
-  handles => [qw/dbh/],
-);
-
-has schema => (
-  is => 'ro',
-  isa => 'SQL::Translator::Schema',
-  lazy_build => 1,
-);
 
 has _core_table => (
   is => 'ro',
@@ -126,23 +91,6 @@ sub _build__resource_tables { return [] }
 
 sub _build__query_fields { return [] }
 
-sub _build_dbis {
-  my ($self) = @_;
-  my @connect = map { $self->$_ } qw/dsn db_user db_pass/;
-  my $dbis = eval { DBIx::Simple->connect(@connect) }
-    or die "Could not connect via " . join(":",map { qq{'$_'} } @connect[0,1],"...")
-    . " because: $@\n";
-  return $dbis;
-}
-
-sub _build_schema {
-  my $self = shift;
-  return SQL::Translator::Schema->new(
-    name => 'Metabase',
-    database => $self->db_type,
-  );
-}
-
 sub _all_tables {
   my $self = shift;
   return
@@ -156,9 +104,6 @@ sub _all_tables {
 #--------------------------------------------------------------------------#
 
 sub initialize {
-  use IO::Handle;
-  STDERR->autoflush(1); # XXX
-  STDOUT->autoflush(1); # XXX
   my ($self, $classes, $resources) = @_;
   @$resources = uniq ( @$resources, "Metabase::Resource::metabase::user" );
   my $schema = $self->schema;
@@ -173,7 +118,6 @@ sub initialize {
     @$classes;
   for my $c ( @$classes, @expanded ) {
     next unless try_load_class($c);
-#    warn "Scanning $c\n";
     my $name = normalize_name( lc($c->type) );
     my $types = $c->content_metadata_types;
     next unless $types && keys %$types;
@@ -196,75 +140,8 @@ sub initialize {
       $self->_table_from_meta( $name, $types )
     );
   }
-  # Blow up if this doesn't seem OK
-  $schema->is_valid or die "Could not generate schema: $schema->error";
-#  use Data::Dumper;
-#  warn "Schema: " . Dumper($schema);
 
-  my $db_type = $self->db_type;
-  # See what we already have
-  my $existing = SQL::Translator->new(
-    parser => 'DBI',
-    parser_args => {
-      dbh => $self->dbis->dbh,
-    },
-    producer => $db_type,
-    show_warnings => 0, # suppress warning from empty DB
-  );
-  {
-    # shut up P::RD when there is no text -- the SQL::Translator parser
-    # forces things on when loaded.  Gross.
-    no warnings 'once';
-    load_class( "SQL::Translator::Parser::" . $self->db_type );
-    local *main::RD_ERRORS;
-    local *main::RD_WARN;
-    local *main::RD_HINT;
-    my $existing_sql = $existing->translate();
-#    warn "*** Existing schema: " . $existing_sql;
-  }
-
-  # Convert our target schema
-  my $fake = SQL::Translator->new(
-    parser => 'Storable',
-    producer => $db_type,
-  );
-  my $fake_sql = $fake->translate( \( nfreeze($schema) ) );
-#  warn "*** Fake schema: $fake_sql";
-
-  my $target = SQL::Translator->new(
-    parser => $db_type,
-    producer => $db_type,
-  );
-  my $target_sql = $target->translate(\$fake_sql);
-#  warn "*** Target schema: $target_sql";
-
-  my $diff = SQL::Translator::Diff::schema_diff(
-    $existing->schema, $db_type, $target->schema, $db_type
-  );
-
-  $diff = $self->_fixup_sql_diff($diff);
-
-  # DBIx::RunSQL requires a file (ugh)
-  my ($fh, $sqlfile) = File::Temp::tempfile();
-  print {$fh} $diff;
-  close $fh;
-#  warn "*** Schema Diff:\n$diff\n"; # XXX
-
-  $self->clear_dbis; # ensure we re-initailize handle
-  unless ( $diff =~ /-- No differences found/i ) {
-    DBIx::RunSQL->create(
-      dbh => $self->dbh,
-      sql => $sqlfile,
-    );
-    $self->dbh->disconnect;
-  }
-
-  # must reset the connection
-  $self->clear_dbis;
-  $self->dbis; # rebuild
-
-#  my ($count) = $self->dbis->query(qq{select count(*) from "core"})->list;
-#  warn "Initialized with $count records";
+  $self->_deploy_schema;
 
   return;
 }
