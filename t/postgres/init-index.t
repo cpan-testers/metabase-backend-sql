@@ -10,8 +10,6 @@ use File::Temp ();
 use File::Spec::Functions qw/catfile/;
 use SQL::Translator;
 
-use lib "t/lib";
-
 use Metabase::Index::PostgreSQL;
 
 plan skip_all => 'No $ENV{METABASE_TEST_PG_DBNAME}'

@@ -19,7 +19,7 @@ has db_name => (
 
 sub _build_dsn {
   my $self = shift;
-  return "dbi:SQLite:dbname=" . $self->db_name;
+  return "dbi:Pg:dbname=" . $self->db_name;
 }
 
 sub _build_db_user { return "" }
@@ -59,10 +59,12 @@ op_not op_or op_and
 
 =head1 SYNOPSIS
 
-  use Metabase::Index::SimpleDB;
+  use Metabase::Index::PostgreSQL;
 
-  Metabase::Index:SimpleDB->new(
-    filename => '/tmp/cpantesters.sqlite',
+  Metabase::Index::PostgreSQL->new(
+    db_name => 'cpantesters',
+    db_user => "johndoe",
+    db_pass => "PaSsWoRd",
   );
 
 =head1 DESCRIPTION

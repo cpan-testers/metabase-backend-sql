@@ -8,11 +8,12 @@ package Metabase::Index::SQL;
 
 use Moose::Role;
 
-use Class::Load qw/try_load_class/;
+use Class::Load qw/load_class try_load_class/;
 use Data::Stream::Bulk::Array;
 use Data::Stream::Bulk::Nil;
 use DBIx::RunSQL;
 use DBIx::Simple;
+use File::Temp ();
 use List::AllUtils qw/uniq/;
 use SQL::Abstract;
 use SQL::Translator::Schema;
@@ -65,7 +66,7 @@ has schema => (
   lazy_build => 1,
 );
 
-has core_table => (
+has _core_table => (
   is => 'ro',
   isa => 'Str',
   default => sub { "core_meta" },
@@ -141,6 +142,14 @@ sub _build_schema {
   );
 }
 
+sub _all_tables {
+  my $self = shift;
+  return
+    $self->_core_table,
+    $self->_all_content_tables,
+    $self->_all_resource_tables;
+}
+
 #--------------------------------------------------------------------------#
 # methods
 #--------------------------------------------------------------------------#
@@ -154,7 +163,7 @@ sub initialize {
   my $schema = $self->schema;
   # Core table
   $schema->add_table(
-    $self->_table_from_meta( $self->core_table, Metabase::Fact->core_metadata_types )
+    $self->_table_from_meta( $self->_core_table, Metabase::Fact->core_metadata_types )
   );
   # Fact tables
   my @expanded =
@@ -196,22 +205,21 @@ sub initialize {
   my $existing = SQL::Translator->new(
     parser => 'DBI',
     parser_args => {
-#      dsn => 'dbi:SQLite:dbname=' . $self->filename,
       dbh => $self->dbis->dbh,
     },
     producer => $db_type,
     show_warnings => 0, # suppress warning from empty DB
   );
   {
-    # shut up P::RD when there is no text -- the SQLite parser
+    # shut up P::RD when there is no text -- the SQL::Translator parser
     # forces things on when loaded.  Gross.
     no warnings 'once';
-    require SQL::Translator::Parser::SQLite;
+    load_class( "SQL::Translator::Parser::" . $self->db_type );
     local *main::RD_ERRORS;
     local *main::RD_WARN;
     local *main::RD_HINT;
     my $existing_sql = $existing->translate();
-    warn "Existing schema: " . $existing_sql;
+#    warn "Existing schema: " . $existing_sql;
   }
 
   # Convert our target schema
@@ -220,14 +228,14 @@ sub initialize {
     producer => $db_type,
   );
   my $fake_sql = $fake->translate( \( nfreeze($schema) ) );
-  warn "Fake schema: $fake_sql";
+#  warn "Fake schema: $fake_sql";
 
   my $target = SQL::Translator->new(
     parser => $db_type,
     producer => $db_type,
   );
   my $target_sql = $target->translate(\$fake_sql);
-  warn "Target schema: $target_sql";
+#  warn "Target schema: $target_sql";
 
   my $diff = SQL::Translator::Diff::schema_diff(
     $existing->schema, $db_type, $target->schema, $db_type
@@ -239,7 +247,7 @@ sub initialize {
   my ($fh, $sqlfile) = File::Temp::tempfile();
   print {$fh} $diff;
   close $fh;
-  warn "Schema Diff:\n$diff\n"; # XXX
+#  warn "Schema Diff:\n$diff\n"; # XXX
 
   $self->clear_dbis; # ensure we re-initailize handle
   unless ( $diff =~ /-- No differences found/i ) {
@@ -265,10 +273,10 @@ sub _table_from_meta {
   $typehash->{_guid} = "//str"; # always the PK
   my $table = SQL::Translator::Schema::Table->new( name => $name );
   for my $k ( sort keys %$typehash ) {
-#    warn "Adding $k\n";
+    warn "Adding $k to $name\n";
     $table->add_field(
       name => normalize_name($k),
-      data_type => $self->typemap->{$typehash->{$k}} || "//str",
+      data_type => $self->typemap->{$typehash->{$k} || "//str"},
     );
   }
   return $table;
@@ -311,7 +319,7 @@ sub _get_search_sql {
 
   # based on requests, conduct joins
   my @from = qq{from "core_meta" core};
-  return unless $self->_check_query_fields($self->core_table, 'core');
+  return unless $self->_check_query_fields($self->_core_table, 'core');
 
   if ( my $content_type = $self->_requested_content_type ) {
     my $content_table = $self->_content_table($content_type);
