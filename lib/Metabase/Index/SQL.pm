@@ -22,7 +22,6 @@ use SQL::Translator::Utils qw/normalize_name/;
 use SQL::Translator;
 use Try::Tiny;
 use Metabase::Fact;
-use Storable qw/nfreeze/;
 
 with 'Metabase::Backend::SQL';
 with 'Metabase::Index';
