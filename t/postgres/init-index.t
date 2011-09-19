@@ -61,10 +61,38 @@ test "init with facts" => sub {
   );
 };
 
-#  my @resources = qw(
-#    Metabase::Resource::cpan::distfile
-#    Metabase::Resource::metabase::user
-#  );
+test "init with resources" => sub {
+  my $self = shift;
+  $self->clear_index;
+  my @resources = qw(
+    Metabase::Resource::cpan::distfile
+    Metabase::Resource::metabase::user
+  );
+  is(
+    exception { $self->index->initialize(undef, \@resources) },
+    undef,
+    "init core + resources didn't die"
+  );
+};
+
+
+test "full init" => sub {
+  my $self = shift;
+  $self->clear_index;
+  my @classes = qw(
+    Metabase::Test::Fact
+    Metabase::User::Profile
+  );
+  my @resources = qw(
+    Metabase::Resource::cpan::distfile
+    Metabase::Resource::metabase::user
+  );
+  is(
+    exception { $self->index->initialize(\@classes, \@resources) },
+    undef,
+    "init core + classes + resources didn't die"
+  );
+};
 
 run_me;
 

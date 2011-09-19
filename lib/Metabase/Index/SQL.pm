@@ -219,7 +219,7 @@ sub initialize {
     local *main::RD_WARN;
     local *main::RD_HINT;
     my $existing_sql = $existing->translate();
-#    warn "Existing schema: " . $existing_sql;
+    warn "*** Existing schema: " . $existing_sql;
   }
 
   # Convert our target schema
@@ -228,14 +228,14 @@ sub initialize {
     producer => $db_type,
   );
   my $fake_sql = $fake->translate( \( nfreeze($schema) ) );
-#  warn "Fake schema: $fake_sql";
+  warn "*** Fake schema: $fake_sql";
 
   my $target = SQL::Translator->new(
     parser => $db_type,
     producer => $db_type,
   );
   my $target_sql = $target->translate(\$fake_sql);
-#  warn "Target schema: $target_sql";
+  warn "*** Target schema: $target_sql";
 
   my $diff = SQL::Translator::Diff::schema_diff(
     $existing->schema, $db_type, $target->schema, $db_type
@@ -247,7 +247,7 @@ sub initialize {
   my ($fh, $sqlfile) = File::Temp::tempfile();
   print {$fh} $diff;
   close $fh;
-#  warn "Schema Diff:\n$diff\n"; # XXX
+  warn "*** Schema Diff:\n$diff\n"; # XXX
 
   $self->clear_dbis; # ensure we re-initailize handle
   unless ( $diff =~ /-- No differences found/i ) {
@@ -273,7 +273,7 @@ sub _table_from_meta {
   $typehash->{_guid} = "//str"; # always the PK
   my $table = SQL::Translator::Schema::Table->new( name => $name );
   for my $k ( sort keys %$typehash ) {
-    warn "Adding $k to $name\n";
+#    warn "Adding $k to $name\n";
     $table->add_field(
       name => normalize_name($k),
       data_type => $self->typemap->{$typehash->{$k} || "//str"},
