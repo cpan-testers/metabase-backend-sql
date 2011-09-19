@@ -4,7 +4,7 @@ use warnings;
 
 package Metabase::Backend::SQLite;
 # VERSION
-# ABSTRACT: Metabase backend implemented using Amazon Web Services
+# ABSTRACT: Metabase backend implemented using SQLite
 
 use MooseX::Types::Path::Class;
 use Moose::Role;
@@ -33,7 +33,7 @@ XXX consolidate synopses from modules
 
 =head1 DESCRIPTION
 
-This distribution provides a backend for L<Metabase> using Amazon Web Services.
+This distribution provides a backend for L<Metabase> using SQLite.
 There are two modules included, L<Metabase::Index::SQLite> and
 L<Metabase::Archive::SQLite>.  They can be used separately or together (see
 L<Metabase::Librarian> for details).
