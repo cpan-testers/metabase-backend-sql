@@ -46,6 +46,7 @@ requires '_build_dsn';
 requires '_build_db_user';
 requires '_build_db_pass';
 requires '_build_db_type';
+requires '_fixup_sql_diff';
 
 #--------------------------------------------------------------------------#
 # attributes built by the role
@@ -210,7 +211,7 @@ sub initialize {
     local *main::RD_WARN;
     local *main::RD_HINT;
     my $existing_sql = $existing->translate();
-    #  warn "Existing schema: " . $existing_sql;
+    warn "Existing schema: " . $existing_sql;
   }
 
   # Convert our target schema
@@ -219,32 +220,26 @@ sub initialize {
     producer => $db_type,
   );
   my $fake_sql = $fake->translate( \( nfreeze($schema) ) );
-#  warn "Fake schema: $fake_sql";
+  warn "Fake schema: $fake_sql";
 
   my $target = SQL::Translator->new(
     parser => $db_type,
     producer => $db_type,
   );
   my $target_sql = $target->translate(\$fake_sql);
-#  warn "Target schema: $target_sql";
+  warn "Target schema: $target_sql";
 
   my $diff = SQL::Translator::Diff::schema_diff(
     $existing->schema, $db_type, $target->schema, $db_type
   );
 
-  # Fix up BEGIN/COMMIT
-  $diff =~ s/BEGIN;/BEGIN TRANSACTION;/mg;
-  $diff =~ s/COMMIT;/COMMIT TRANSACTION;/mg;
-  # Strip comments
-  $diff =~ s/^--[^\n]*$//msg;
-  # strip empty lines
-  $diff =~ s/^\n//msg;
+  $diff = $self->_fixup_sql_diff($diff);
 
   # DBIx::RunSQL requires a file (ugh)
   my ($fh, $sqlfile) = File::Temp::tempfile();
   print {$fh} $diff;
   close $fh;
-#  warn "Schema Diff:\n$diff\n"; # XXX
+  warn "Schema Diff:\n$diff\n"; # XXX
 
   $self->clear_dbis; # ensure we re-initailize handle
   unless ( $diff =~ /-- No differences found/i ) {

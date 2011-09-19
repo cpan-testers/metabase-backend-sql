@@ -2,54 +2,40 @@ use 5.006;
 use strict;
 use warnings;
 
-package Metabase::Index::SQLite;
+package Metabase::Index::PostgreSQL;
 # ABSTRACT: Metabase index backend using SQLite
 # VERSION
 
 use Moose;
-use DBD::SQLite;
+use DBD::Pg;
 
-with 'Metabase::Backend::SQLite';
 with 'Metabase::Index::SQL';
+
+has db_name => (
+  is => 'ro',
+  isa => 'Str',
+  required => 1,
+);
 
 sub _build_dsn {
   my $self = shift;
-  return "dbi:SQLite:dbname=" . $self->filename;
+  return "dbi:SQLite:dbname=" . $self->db_name;
 }
 
 sub _build_db_user { return "" }
 
 sub _build_db_pass { return "" }
 
-sub _build_db_type { return "SQLite" }
+sub _build_db_type { return "PostgreSQL" }
 
-around _build_dbis => sub {
-  my $orig = shift;
-  my $self = shift;
-  my $dbis = $self->$orig;
-  my $toggle = $self->synchronous ? "ON" : "OFF";
-  $dbis->query("PRAGMA synchronous = $toggle");
-  return $dbis;
-};
+sub _fixup_sql_diff { return $_[1] }
 
 sub _build_typemap {
   return {
-    '//str'   => 'varchar(255)',
+    '//str'   => 'text',
     '//num'   => 'integer',
     '//bool'  => 'boolean',
   };
-}
-
-sub _fixup_sql_diff {
-  my ($self, $diff) = @_;
-  # Fix up BEGIN/COMMIT
-  $diff =~ s/BEGIN;/BEGIN TRANSACTION;/mg;
-  $diff =~ s/COMMIT;/COMMIT TRANSACTION;/mg;
-  # Strip comments
-  $diff =~ s/^--[^\n]*$//msg;
-  # strip empty lines
-  $diff =~ s/^\n//msg;
-  return $diff;
 }
 
 sub _quote_field {
