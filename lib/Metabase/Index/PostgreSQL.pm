@@ -7,6 +7,7 @@ package Metabase::Index::PostgreSQL;
 # VERSION
 
 use Moose;
+use SQL::Abstract;
 use DBD::Pg;
 
 with 'Metabase::Index::SQL';
@@ -38,9 +39,19 @@ sub _build_typemap {
   };
 }
 
+around _build_dbis => sub {
+  my $orig = shift;
+  my $self = shift;
+  my $dbis = $self->$orig;
+  $dbis->abstract = SQL::Abstract->new(
+    quote_char => q{"},
+  );
+  return $dbis;
+};
+
 sub _quote_field {
   my ($self, $field) = @_;
-  return qq{$field}; # XXX we assume the identifiers don't need quoting
+  return join(".", map { qq{"$_"} } split qr/\./, $field);
 }
 
 sub _quote_val {
