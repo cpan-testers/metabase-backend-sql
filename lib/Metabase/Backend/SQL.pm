@@ -7,6 +7,7 @@ package Metabase::Backend::SQL;
 # ABSTRACT: Metabase backend role for SQL-based backends
 
 use Class::Load qw/load_class try_load_class/;
+use SQL::Translator::Schema;
 use Storable qw/nfreeze/;
 
 use Moose::Role;
@@ -83,7 +84,8 @@ sub _deploy_schema {
     # shut up P::RD when there is no text -- the SQL::Translator parser
     # forces things on when loaded.  Gross.
     no warnings 'once';
-    load_class( "SQL::Translator::Parser::" . $self->db_type );
+    load_class( "SQL::Translator::Parser::" . $db_type );
+    load_class( "SQL::Translator::Producer::" . $db_type );
     local *main::RD_ERRORS;
     local *main::RD_WARN;
     local *main::RD_HINT;
@@ -99,15 +101,15 @@ sub _deploy_schema {
   my $fake_sql = $fake->translate( \( nfreeze($schema) ) );
 #  warn "*** Fake schema: $fake_sql";
 
-  my $target = SQL::Translator->new(
-    parser => $db_type,
-    producer => $db_type,
-  );
-  my $target_sql = $target->translate(\$fake_sql);
+#  my $target = SQL::Translator->new(
+#    parser => $db_type,
+#    producer => $db_type,
+#  );
+#  my $target_sql = $target->translate(\$fake_sql);
 #  warn "*** Target schema: $target_sql";
 
   my $diff = SQL::Translator::Diff::schema_diff(
-    $existing->schema, $db_type, $target->schema, $db_type
+    $existing->schema, $db_type, $fake->schema, $db_type
   );
 
   $diff = $self->_fixup_sql_diff($diff);

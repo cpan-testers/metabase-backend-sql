@@ -7,7 +7,6 @@ package Metabase::Backend::PostgreSQL;
 # ABSTRACT: Metabase backend implemented using PostgreSQL
 
 use Moose::Role;
-use DBD::Pg;
 use namespace::autoclean;
 
 with 'Metabase::Backend::SQL';

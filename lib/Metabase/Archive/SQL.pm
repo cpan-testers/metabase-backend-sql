@@ -36,9 +36,15 @@ has 'compressed' => (
   default => 1,
 );
 
-has '_blob_type' => (
+has '_blob_field_params' => (
   is => 'ro',
-  isa => 'Str',
+  isa => 'HashRef',
+  lazy_build => 1,
+);
+
+has '_guid_field_params' => (
+  is => 'ro',
+  isa => 'HashRef',
   lazy_build => 1,
 );
 
@@ -48,23 +54,19 @@ has _table_name => (
   default => 'metabase_archive',
 );
 
-requires '_build__blob_type';
+requires '_build__blob_field_params';
+requires '_build__guid_field_params';
+requires '_munge_guid';
 
 sub initialize {
   my ($self, @fact_classes) = @_;
   my $schema = $self->schema;
   my $table = SQL::Translator::Schema::Table->new( name => $self->_table_name );
-  $table->add_field( name => 'guid', data_type => 'char', size => 16 );
-  $table->add_field( name => 'fact', data_type => $self->_blob_type );
+  $table->add_field( name => 'guid', %{$self->_guid_field_params} ) or die;
+  $table->add_field( name => 'fact', %{$self->_blob_field_params} ) or die;
   $schema->add_table($table);
   $self->_deploy_schema;
   return;
-}
-
-sub _packed_guid {
-  my ($self, $guid) = @_;
-  (my $clean_guid = $guid) =~ s{-}{}g;
-  return pack("H*",$clean_guid);
 }
 
 # given fact, store it and return guid; return
@@ -88,15 +90,15 @@ sub store {
   Carp::confess "Couldn't convert to JSON: $@"
   unless $json;
 
-  if ( $self->compressed ) {
-    $json    = compress($json);
-  }
+#  if ( $self->compressed ) {
+#    $json    = compress($json);
+#  }
 
 
   try {
     $self->dbis->begin_work();
     $self->dbis->insert($self->_table_name, {
-        guid => $self->_packed_guid($guid),
+        guid => $self->_munge_guid($guid),
         fact => $json,
       });
     $self->dbis->commit;
@@ -115,7 +117,7 @@ sub store {
 sub extract {
   my ( $self, $guid ) = @_;
   my $rs = $self->dbis->select($self->_table_name, 'fact', {
-    guid => $self->_packed_guid($guid)
+    guid => $self->_munge_guid($guid)
   });
   return $self->_extract_fact($rs->fetch->[0]);
 }
@@ -124,9 +126,9 @@ sub _extract_fact {
   my ($self, $json) = @_;
   return undef unless $json;
 
-  if ( $self->compressed ) {
-    $json    = uncompress($json);
-  }
+#  if ( $self->compressed ) {
+#    $json    = uncompress($json);
+#  }
 
   my $fact = eval { JSON->new->utf8->decode($json) };
   Carp::confess "Couldn't convert from JSON: $@"
@@ -142,7 +144,7 @@ sub delete {
   try {
     $self->dbis->begin_work();
     $rs = $self->dbis->delete($self->_table_name, {
-      guid => $self->_packed_guid($guid)
+      guid => $self->_munge_guid($guid)
     });
     $self->dbis->commit;
   }
@@ -158,9 +160,21 @@ sub iterator {
   my ($self) = @_;
   my $rs = $self->dbis->select($self->_table_name, 'fact'); # everything
 
-  my $dbi_stream = Data::Stream::Bulk::Array->new(
-    array => scalar $rs->arrays,
-  );
+  my $sth = $rs->{st}{sth}; # XXX encapsulation violation, oh, well
+
+  # Not all DB's set 'Active' on the sth correctly
+  # so fall back to fetching all data if it can't
+  my $dbi_stream;
+  if ( 0 && $sth->FETCH('Active') ) {
+    $dbi_stream = Data::Stream::Bulk::DBI->new(
+      sth => $sth
+    );
+  }
+  else {
+    $dbi_stream = Data::Stream::Bulk::Array->new(
+      array => scalar $rs->arrays,
+    );
+  }
 
   return Data::Stream::Bulk::Filter->new(
     stream => $dbi_stream,

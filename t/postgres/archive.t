@@ -23,6 +23,13 @@ sub _build_archive {
   return $archive;
 }
 
+before 'clear_archive' => sub {
+  my $self = shift;
+  my $dbis = $self->archive->dbis;
+  $dbis->query("DROP TABLE " . $self->archive->_table_name . ";");
+  return;
+};
+
 run_tests(
   "Run Archive tests on Metabase::Archive::PostgreSQL",
   ["main", "Metabase::Test::Archive"]

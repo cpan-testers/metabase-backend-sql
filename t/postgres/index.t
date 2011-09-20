@@ -1,6 +1,7 @@
 use strict;
 use warnings;
 
+use Class::Load qw/try_load_class/;
 use Test::More;
 use Test::Routine;
 use Test::Routine::Util;
