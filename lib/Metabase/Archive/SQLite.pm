@@ -23,7 +23,7 @@ use SQL::Translator 0.11006 (); # required for deploy()
 use Metabase::Archive::Schema;
 
 with 'Metabase::Backend::SQLite';
-with 'Metabase::Archive';
+with 'Metabase::Archive::SQL';
 
 has 'compressed' => (
     is      => 'rw',
@@ -31,114 +31,27 @@ has 'compressed' => (
     default => 1,
 );
 
-has 'schema' => (
-    is      => 'ro',
-    isa     => 'Metabase::Archive::Schema',
-    lazy    => 1,
-    default => sub {
-        my $self     = shift;
-        my $filename = $self->filename;
-        my $exists   = -f $filename;
-        my $schema   = Metabase::Archive::Schema->connect(
-            "dbi:SQLite:$filename",
-            "", "",
-            {   RaiseError => 1,
-                AutoCommit => 1,
-            },
-        );
-        return $schema;
-    },
-);
+sub _build__blob_type { 'blob' }
 
-sub initialize {
-  my ($self, @fact_classes) = @_;
-  $self->schema->deploy unless -e $self->filename;
-  $self->schema->storage->dbh_do(
-    sub {
-      my ($storage,$dbh) = @_;
-      my $toggle = $self->synchronous ? "ON" : "OFF";
-      $dbh->do("PRAGMA synchronous = $toggle");
-    }
-  );
-  return;
+sub _build_dsn {
+  my $self = shift;
+  return "dbi:SQLite:dbname=" . $self->filename;
 }
 
-# given fact, store it and return guid; return
-# XXX can we store a fact with a GUID already?  Replaces?  Or error?
-# here assign only if no GUID already
-sub store {
-    my ( $self, $fact_struct ) = @_;
-    my $guid = lc $fact_struct->{metadata}{core}{guid};
-    my $type = $fact_struct->{metadata}{core}{type};
+sub _build_db_user { return "" }
 
-    unless ($guid) {
-        Carp::confess "Can't store: no GUID set for fact\n";
-    }
+sub _build_db_pass { return "" }
 
-    my $content = $fact_struct->{content};
-    my $json    = eval { JSON->new->ascii->encode($fact_struct->{metadata}{core}) };
-    Carp::confess "Couldn't convert to JSON: $@"
-      unless $json;
+sub _build_db_type { return "SQLite" }
 
-    if ( $self->compressed ) {
-        $json    = compress($json);
-        $content = compress($content);
-    }
-
-    $self->schema->resultset('Fact')->create(
-        {   guid    => $guid,
-            type    => $type,
-            meta    => $json,
-            content => $content,
-        }
-    );
-
-    return $guid;
-}
-
-# given guid, retrieve it and return it
-# type is directory path
-# class isa Metabase::Fact::Subclass
-sub extract {
-    my ( $self, $guid ) = @_;
-    my $schema = $self->schema;
-
-    my $fact = $schema->resultset('Fact')->find(lc $guid);
-    return undef unless $fact;
-
-    my $type    = $fact->type;
-    my $json    = $fact->meta;
-    my $content = $fact->content;
-
-    if ( $self->compressed ) {
-        $json    = uncompress($json);
-        $content = uncompress($content);
-    }
-
-    my $meta = JSON->new->ascii->decode($json);
-
-    # reconstruct fact meta and extract type to find the class
-    my $class = Metabase::Fact->class_from_type($type);
-
-    return { 
-      content => $content, 
-      metadata => {
-        core => $meta
-      },
-    };
-}
-
-sub delete {
-    my ( $self, $guid ) = @_;
-    $self->schema->resultset('Fact')->find(lc $guid)->delete;
-}
-
-sub iterator {
-  my ($self) = @_;
-  return Data::Stream::Bulk::DBIC->new(
-    resultset => scalar($self->schema->resultset("Fact")->search_rs)
-  );
-}
+around _build_dbis => sub {
+  my $orig = shift;
+  my $self = shift;
+  my $dbis = $self->$orig;
+  my $toggle = $self->synchronous ? "ON" : "OFF";
+  $dbis->query("PRAGMA synchronous = $toggle");
+  return $dbis;
+};
 
 1;
 

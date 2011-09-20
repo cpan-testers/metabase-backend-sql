@@ -463,11 +463,11 @@ by a Moose class consuming this role.
 
 The following methods must be implemented:
 
-  _build_typemap    # hashref of metadata types to schema data types
   _build_dsn        # a DSN string for DBI
   _build_db_user    # a username for DBI
   _build_db_pass    # a password for DBI
   _build_db_type    # a SQL::Translator type for the DB vendor
+  _build_typemap    # hashref of metadata types to schema data types
   _quote_field      # vendor-specific identifier quoting
   _quote_val        # vendor-specific value quoting
 

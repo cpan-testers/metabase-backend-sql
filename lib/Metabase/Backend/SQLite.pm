@@ -23,6 +23,26 @@ has 'synchronous' => (
     default => 0,
 );
 
+sub _build_typemap {
+  return {
+    '//str'   => 'varchar(255)',
+    '//num'   => 'integer',
+    '//bool'  => 'boolean',
+  };
+}
+
+sub _fixup_sql_diff {
+  my ($self, $diff) = @_;
+  # Fix up BEGIN/COMMIT
+  $diff =~ s/BEGIN;/BEGIN TRANSACTION;/mg;
+  $diff =~ s/COMMIT;/COMMIT TRANSACTION;/mg;
+  # Strip comments
+  $diff =~ s/^--[^\n]*$//msg;
+  # strip empty lines
+  $diff =~ s/^\n//msg;
+  return $diff;
+}
+
 1;
 
 =for Pod::Coverage method_names_here

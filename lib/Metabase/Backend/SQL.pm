@@ -183,11 +183,11 @@ SQL::Translator::Schema class
 
 The following builders must be provided by consuming classes.
 
-  _build_dsn
-  _build_db_user
-  _build_db_pass
-  _build_typemap
-  _build_db_type
+  _build_dsn        # a DSN string for DBI
+  _build_db_user    # a username for DBI
+  _build_db_pass    # a password for DBI
+  _build_db_type    # a SQL::Translator type for the DB vendor
+  _build_typemap    # hashref of metadata types to schema data types
 
 The following method must be provided to modify the output of
 SQL::Translator::Diff to fix up any dialect quirks
