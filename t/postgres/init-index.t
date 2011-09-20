@@ -15,6 +15,9 @@ use Metabase::Index::PostgreSQL;
 plan skip_all => 'No $ENV{METABASE_TEST_PG_DBNAME}'
   unless $ENV{METABASE_TEST_PG_DBNAME};
 
+plan skip_all => 'DBD::Pg not installed'
+  unless try_load_class("DBD::Pg");
+
 has index => (
   is => 'ro',
   does => 'Metabase::Index',

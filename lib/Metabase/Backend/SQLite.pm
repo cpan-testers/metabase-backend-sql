@@ -8,6 +8,7 @@ package Metabase::Backend::SQLite;
 
 use MooseX::Types::Path::Class;
 use Moose::Role;
+use DBD::SQLite;
 use namespace::autoclean;
 
 with 'Metabase::Backend::SQL';
