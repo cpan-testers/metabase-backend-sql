@@ -10,6 +10,8 @@ use MooseX::Types::Path::Class;
 use Moose::Role;
 use namespace::autoclean;
 
+with 'Metabase::Backend::SQL';
+
 has 'filename' => (
     is       => 'ro',
     isa      => 'Path::Class::File',
@@ -23,13 +25,25 @@ has 'synchronous' => (
     default => 0,
 );
 
-sub _build_typemap {
-  return {
-    '//str'   => 'varchar(255)',
-    '//num'   => 'integer',
-    '//bool'  => 'boolean',
-  };
+sub _build_dsn {
+  my $self = shift;
+  return "dbi:SQLite:dbname=" . $self->filename;
 }
+
+sub _build_db_user { return "" }
+
+sub _build_db_pass { return "" }
+
+sub _build_db_type { return "SQLite" }
+
+around _build_dbis => sub {
+  my $orig = shift;
+  my $self = shift;
+  my $dbis = $self->$orig;
+  my $toggle = $self->synchronous ? "ON" : "OFF";
+  $dbis->query("PRAGMA synchronous = $toggle");
+  return $dbis;
+};
 
 sub _fixup_sql_diff {
   my ($self, $diff) = @_;

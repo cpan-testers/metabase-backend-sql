@@ -7,30 +7,9 @@ package Metabase::Index::SQLite;
 # VERSION
 
 use Moose;
-use DBD::SQLite;
 
 with 'Metabase::Backend::SQLite';
 with 'Metabase::Index::SQL';
-
-sub _build_dsn {
-  my $self = shift;
-  return "dbi:SQLite:dbname=" . $self->filename;
-}
-
-sub _build_db_user { return "" }
-
-sub _build_db_pass { return "" }
-
-sub _build_db_type { return "SQLite" }
-
-around _build_dbis => sub {
-  my $orig = shift;
-  my $self = shift;
-  my $dbis = $self->$orig;
-  my $toggle = $self->synchronous ? "ON" : "OFF";
-  $dbis->query("PRAGMA synchronous = $toggle");
-  return $dbis;
-};
 
 sub _build_typemap {
   return {
@@ -40,21 +19,9 @@ sub _build_typemap {
   };
 }
 
-sub _fixup_sql_diff {
-  my ($self, $diff) = @_;
-  # Fix up BEGIN/COMMIT
-  $diff =~ s/BEGIN;/BEGIN TRANSACTION;/mg;
-  $diff =~ s/COMMIT;/COMMIT TRANSACTION;/mg;
-  # Strip comments
-  $diff =~ s/^--[^\n]*$//msg;
-  # strip empty lines
-  $diff =~ s/^\n//msg;
-  return $diff;
-}
-
 sub _quote_field {
   my ($self, $field) = @_;
-  return qq{$field}; # XXX we assume the identifiers don't need quoting
+  return join(".", map { qq{"$_"} } split qr/\./, $field);
 }
 
 sub _quote_val {

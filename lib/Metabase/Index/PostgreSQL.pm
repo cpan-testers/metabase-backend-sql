@@ -7,29 +7,9 @@ package Metabase::Index::PostgreSQL;
 # VERSION
 
 use Moose;
-use SQL::Abstract;
-use DBD::Pg;
 
+with 'Metabase::Backend::PostgreSQL';
 with 'Metabase::Index::SQL';
-
-has db_name => (
-  is => 'ro',
-  isa => 'Str',
-  required => 1,
-);
-
-sub _build_dsn {
-  my $self = shift;
-  return "dbi:Pg:dbname=" . $self->db_name;
-}
-
-sub _build_db_user { return "" }
-
-sub _build_db_pass { return "" }
-
-sub _build_db_type { return "PostgreSQL" }
-
-sub _fixup_sql_diff { return $_[1] }
 
 sub _build_typemap {
   return {
@@ -38,16 +18,6 @@ sub _build_typemap {
     '//bool'  => 'boolean',
   };
 }
-
-around _build_dbis => sub {
-  my $orig = shift;
-  my $self = shift;
-  my $dbis = $self->$orig;
-  $dbis->abstract = SQL::Abstract->new(
-    quote_char => q{"},
-  );
-  return $dbis;
-};
 
 sub _quote_field {
   my ($self, $field) = @_;

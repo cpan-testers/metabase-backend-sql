@@ -17,12 +17,6 @@ has [qw/dsn db_user db_pass db_type/] => (
   lazy_build => 1,
 );
 
-has typemap => (
-  is => 'ro',
-  isa => 'HashRef',
-  lazy_build => 1,
-);
-
 has dbis => (
   is => 'ro',
   isa => 'DBIx::Simple',
@@ -36,12 +30,17 @@ has schema => (
   lazy_build => 1,
 );
 
+#--------------------------------------------------------------------------#
+# to be implemented by Metabase::Backend::${DBNAME}
+#--------------------------------------------------------------------------#
+
 requires '_build_dsn';
 requires '_build_db_user';
 requires '_build_db_pass';
 requires '_build_db_type';
-requires '_build_typemap';
 requires '_fixup_sql_diff';
+
+#--------------------------------------------------------------------------#
 
 sub _build_dbis {
   my ($self) = @_;
@@ -162,11 +161,6 @@ Database username
 
 Database password
 
-=attr typemap
-
-Hashref mapping Metabase::Fact metadata types (e.g. "//str") to database-
-specific data types.
-
 =attr db_type
 
 SQL::Translator sub-type for a given database.  E.g. "SQLite" or "PostgreSQL".
@@ -187,7 +181,6 @@ The following builders must be provided by consuming classes.
   _build_db_user    # a username for DBI
   _build_db_pass    # a password for DBI
   _build_db_type    # a SQL::Translator type for the DB vendor
-  _build_typemap    # hashref of metadata types to schema data types
 
 The following method must be provided to modify the output of
 SQL::Translator::Diff to fix up any dialect quirks

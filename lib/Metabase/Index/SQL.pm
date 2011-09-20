@@ -26,6 +26,14 @@ use Metabase::Fact;
 with 'Metabase::Backend::SQL';
 with 'Metabase::Index';
 
+has typemap => (
+  is => 'ro',
+  isa => 'HashRef',
+  lazy_build => 1,
+);
+
+requires '_build_typemap';
+
 #--------------------------------------------------------------------------#
 # attributes built by the role
 #--------------------------------------------------------------------------#

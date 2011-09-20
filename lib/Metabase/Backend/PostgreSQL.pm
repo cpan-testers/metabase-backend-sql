@@ -9,6 +9,37 @@ package Metabase::Backend::PostgreSQL;
 use Moose::Role;
 use namespace::autoclean;
 
+with 'Metabase::Backend::SQL';
+
+has db_name => (
+  is => 'ro',
+  isa => 'Str',
+  required => 1,
+);
+
+sub _build_dsn {
+  my $self = shift;
+  return "dbi:Pg:dbname=" . $self->db_name;
+}
+
+sub _build_db_user { return "" }
+
+sub _build_db_pass { return "" }
+
+sub _build_db_type { return "PostgreSQL" }
+
+sub _fixup_sql_diff { return $_[1] }
+
+around _build_dbis => sub {
+  my $orig = shift;
+  my $self = shift;
+  my $dbis = $self->$orig;
+  $dbis->abstract = SQL::Abstract->new(
+    quote_char => q{"},
+  );
+  return $dbis;
+};
+
 1;
 
 =for Pod::Coverage method_names_here
