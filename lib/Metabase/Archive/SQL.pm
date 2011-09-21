@@ -25,6 +25,7 @@ use SQL::Abstract;
 use SQL::Translator 0.11006 (); # required for deploy()
 use SQL::Translator::Diff;
 use SQL::Translator::Schema;
+use SQL::Translator::Schema::Constants;
 use SQL::Translator::Utils qw/normalize_name/;
 use Try::Tiny;
 
@@ -49,8 +50,6 @@ sub initialize {
   $table->add_field(
     name => 'guid',
     is_nullable => 0,
-    is_unique => 1,
-    is_primary_key => 1,
     %{$self->_guid_field_params}
   ) or die;
   $table->add_field(
@@ -58,6 +57,11 @@ sub initialize {
     is_nullable => 0,
     %{$self->_blob_field_params}
   ) or die;
+  $table->add_constraint(
+    name => $self->_table_name . "_pk",
+    fields => ['guid'],
+    type => PRIMARY_KEY,
+  );
   $schema->add_table($table);
   $self->_deploy_schema;
   return;
