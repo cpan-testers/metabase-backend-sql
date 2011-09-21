@@ -17,6 +17,7 @@ use File::Temp ();
 use List::AllUtils qw/uniq/;
 use SQL::Abstract;
 use SQL::Translator::Schema;
+use SQL::Translator::Schema::Constants;
 use SQL::Translator::Diff;
 use SQL::Translator::Utils qw/normalize_name/;
 use SQL::Translator;
@@ -115,9 +116,21 @@ sub initialize {
   @$resources = uniq ( @$resources, "Metabase::Resource::metabase::user" );
   my $schema = $self->schema;
   # Core table
-  $schema->add_table(
-    $self->_table_from_meta( $self->_core_table, Metabase::Fact->core_metadata_types )
+  my $table = $self->_table_from_meta( $self->_core_table, Metabase::Fact->core_metadata_types );
+  my $pk = $table->get_field('guid');
+  $pk->is_nullable(0);
+  $pk->is_unique(1);
+  $pk->is_primary_key(1);
+  while ( my ($k,$v) = each %{$self->_guid_field_params} ) {
+    $pk->$k($v)
+      if $pk->can($k);
+  }
+  $table->add_constraint(
+    name => $self->_core_table . "_pk",
+    fields => ['guid'],
+    type => PRIMARY_KEY,
   );
+  $schema->add_table($table);
   # Fact tables
   my @expanded =
     map { $_->fact_classes }
@@ -129,9 +142,18 @@ sub initialize {
     my $types = $c->content_metadata_types;
     next unless $types && keys %$types;
     $self->_push_content_tables($name);
-    $schema->add_table(
-      $self->_table_from_meta( $name, $types )
+    my $table = $self->_table_from_meta( $name, $types );
+    $table->add_field(
+      name => '_guid',
+      is_nullable => 0,
+      %{$self->_guid_field_params}
     );
+    $table->add_constraint(
+      name => "${name}_pk",
+      fields => ['_guid'],
+      type => PRIMARY_KEY,
+    );
+    $schema->add_table($table);
   }
   # Resource tables
   for my $r ( @$resources ) {
@@ -143,9 +165,19 @@ sub initialize {
     my $types = $r->metadata_types;
     next unless keys %$types;
     $self->_push_resource_tables($name);
-    $schema->add_table(
-      $self->_table_from_meta( $name, $types )
+    my $table = $self->_table_from_meta( $name, $types );
+    $table->add_field(
+      name => '_guid',
+      is_nullable => 0,
+      is_primary_key => 1,
+      %{$self->_guid_field_params}
     );
+    $table->add_constraint(
+      name => "${name}_pk",
+      fields => ['_guid'],
+      type => PRIMARY_KEY,
+    );
+    $schema->add_table($table);
   }
 
   $self->_deploy_schema;
@@ -155,7 +187,6 @@ sub initialize {
 
 sub _table_from_meta {
   my ($self, $name, $typehash) = @_;
-  $typehash->{_guid} = "//str"; # always the PK
   my $table = SQL::Translator::Schema::Table->new( name => $name );
   for my $k ( sort keys %$typehash ) {
 #    warn "Adding $k to $name\n";
@@ -243,11 +274,12 @@ sub add {
       $core_meta->{resource} = "$core_meta->{resource}"; #stringify obj
 #        use Data::Dumper;
 #        warn "Adding " . Dumper $core_meta;
+      $core_meta->{guid} = $self->_munge_guid($core_meta->{guid});
       $self->dbis->insert( 'core_meta', $core_meta );
       my $content_meta = $fact->content_metadata;
       # not all facts have content metadata
       if ( keys %$content_meta ) {
-        $content_meta->{_guid} = $fact->guid;
+        $content_meta->{_guid} = $self->_munge_guid($fact->guid);
 #        use Data::Dumper;
 #        warn "Adding " . Dumper $content_meta;
         my $content_table = $self->_content_table( $fact->type );
@@ -257,7 +289,7 @@ sub add {
       my $resource_meta = $fact->resource_metadata;
       # not all facts have resource metadata
       if ( keys %$resource_meta ) {
-        $resource_meta->{_guid} = $fact->guid;
+        $resource_meta->{_guid} = $self->_munge_guid($fact->guid);
 #        use Data::Dumper;
 #        warn "Adding " . Dumper $resource_meta;
         my $resource_table = $self->_resource_table( $resource_meta->{type} );
@@ -297,7 +329,7 @@ sub query {
   my $result = $self->dbis->query($sql);
 
   return Data::Stream::Bulk::Array->new(
-    array => [ map { $_->[0] } $result->arrays ]
+    array => [ map { $self->_unmunge_guid( $_->[0] ) } $result->arrays ]
   );
 }
 
@@ -306,6 +338,7 @@ sub delete {
 
     Carp::confess("can't delete without a GUID") unless $guid;
 
+    $guid = $self->_munge_guid($guid);
     try {
       $self->dbis->begin_work();
       $self->dbis->delete( 'core_meta', { 'guid' => $guid } );
@@ -381,6 +414,28 @@ sub translate_query {
 
   return join( q{ }, @parts ), $limit;
 }
+
+around [qw/op_eq op_ne op_gt op_lt op_ge op_le op_like/ ] => sub {
+  my $orig = shift;
+  my $self = shift;
+  my ($field, $val) = @_;
+  if ( $field eq "core.guid" ) {
+#    warn "*** Fixing $field ($val)";
+    $val = $self->_munge_guid($val);
+  }
+  return $self->$orig($field, $val);
+};
+
+around [qw/op_between/ ] => sub {
+  my $orig = shift;
+  my $self = shift;
+  my ($field, $low, $high) = @_;
+  if ( $field eq "core.guid" ) {
+    $low = $self->_munge_guid($low);
+    $high = $self->_munge_guid($high);
+  }
+  return $self->$orig($field, $low, $high);
+};
 
 sub op_eq {
   my ($self, $field, $val) = @_;

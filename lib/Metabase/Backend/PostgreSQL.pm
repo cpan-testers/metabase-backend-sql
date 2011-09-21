@@ -28,7 +28,14 @@ sub _build_db_pass { return "" }
 
 sub _build_db_type { return "PostgreSQL" }
 
-sub _fixup_sql_diff { return $_[1] }
+sub _fixup_sql_diff {
+  my ($self, $diff) = @_;
+  # Strip DROP INDEX
+  $diff =~ s/DROP INDEX .*;//mg;
+  # Strip ALTER TABLES constraint drops
+  $diff =~ s/ALTER TABLE \S+ ADD CONSTRAINT.*;//mg;
+  return $diff;
+}
 
 around _build_dbis => sub {
   my $orig = shift;
@@ -39,6 +46,28 @@ around _build_dbis => sub {
   );
   return $dbis;
 };
+
+sub _build__blob_field_params {
+  return {
+    data_type => 'text'
+  };
+}
+
+sub _build__guid_field_params {
+  return {
+    data_type => 'uuid'
+  }
+}
+
+my $hex = qr/[0-9a-f]/i;
+sub _munge_guid {
+  my ($self, $guid) = @_;
+  $guid = "00000000-0000-0000-0000-000000000000"
+    unless $guid =~ /${hex}{8}-${hex}{4}-${hex}{4}-${hex}{4}-${hex}{12}/;
+  return $guid;
+}
+
+sub _unmunge_guid { lc return $_[1] }
 
 1;
 

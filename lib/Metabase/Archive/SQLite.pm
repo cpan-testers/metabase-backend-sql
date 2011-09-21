@@ -11,26 +11,6 @@ use Moose;
 with 'Metabase::Backend::SQLite';
 with 'Metabase::Archive::SQL';
 
-
-sub _build__blob_field_params {
-  return {
-    data_type => 'blob'
-  };
-}
-
-sub _build__guid_field_params {
-  return {
-    data_type => 'char',
-    size => 16,
-  }
-}
-
-sub _munge_guid {
-  my ($self, $guid) = @_;
-  (my $clean_guid = $guid) =~ s{-}{}g;
-  return pack("H*",$clean_guid);
-}
-
 1;
 
 __END__

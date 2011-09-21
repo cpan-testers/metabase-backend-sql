@@ -58,6 +58,32 @@ sub _fixup_sql_diff {
   return $diff;
 }
 
+sub _build__guid_field_params {
+  return {
+    data_type => 'char',
+    size => 36,
+  }
+}
+
+sub _build__blob_field_params {
+  return {
+    data_type => 'blob'
+  };
+}
+
+my $hex = qr/[0-9a-f]/i;
+sub _munge_guid {
+  my ($self, $guid) = @_;
+  $guid = "00000000-0000-0000-0000-000000000000"
+    unless $guid =~ /${hex}{8}-${hex}{4}-${hex}{4}-${hex}{4}-${hex}{12}/;
+  return $guid;
+}
+
+sub _unmunge_guid {
+  my ($self, $guid) = @_;
+  return $guid;
+}
+
 1;
 
 =for Pod::Coverage method_names_here

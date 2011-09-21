@@ -36,34 +36,28 @@ has 'compressed' => (
   default => 1,
 );
 
-has '_blob_field_params' => (
-  is => 'ro',
-  isa => 'HashRef',
-  lazy_build => 1,
-);
-
-has '_guid_field_params' => (
-  is => 'ro',
-  isa => 'HashRef',
-  lazy_build => 1,
-);
-
 has _table_name => (
   is => 'ro',
   isa => 'Str',
   default => 'metabase_archive',
 );
 
-requires '_build__blob_field_params';
-requires '_build__guid_field_params';
-requires '_munge_guid';
-
 sub initialize {
   my ($self, @fact_classes) = @_;
   my $schema = $self->schema;
   my $table = SQL::Translator::Schema::Table->new( name => $self->_table_name );
-  $table->add_field( name => 'guid', %{$self->_guid_field_params} ) or die;
-  $table->add_field( name => 'fact', %{$self->_blob_field_params} ) or die;
+  $table->add_field(
+    name => 'guid',
+    is_nullable => 0,
+    is_unique => 1,
+    is_primary_key => 1,
+    %{$self->_guid_field_params}
+  ) or die;
+  $table->add_field(
+    name => 'fact',
+    is_nullable => 0,
+    %{$self->_blob_field_params}
+  ) or die;
   $schema->add_table($table);
   $self->_deploy_schema;
   return;

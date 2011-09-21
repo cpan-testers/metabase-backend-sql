@@ -31,6 +31,18 @@ has schema => (
   lazy_build => 1,
 );
 
+has '_blob_field_params' => (
+  is => 'ro',
+  isa => 'HashRef',
+  lazy_build => 1,
+);
+
+has '_guid_field_params' => (
+  is => 'ro',
+  isa => 'HashRef',
+  lazy_build => 1,
+);
+
 #--------------------------------------------------------------------------#
 # to be implemented by Metabase::Backend::${DBNAME}
 #--------------------------------------------------------------------------#
@@ -40,13 +52,18 @@ requires '_build_db_user';
 requires '_build_db_pass';
 requires '_build_db_type';
 requires '_fixup_sql_diff';
+requires '_build__blob_field_params';
+requires '_build__guid_field_params';
+requires '_munge_guid';
+requires '_unmunge_guid';
+
 
 #--------------------------------------------------------------------------#
 
 sub _build_dbis {
   my ($self) = @_;
   my @connect = map { $self->$_ } qw/dsn db_user db_pass/;
-  my $dbis = eval { DBIx::Simple->connect(@connect) }
+  my $dbis = eval { DBIx::Simple->connect(@connect, {PrintWarn => 0}) }
     or die "Could not connect via " . join(":",map { qq{'$_'} } @connect[0,1],"...")
     . " because: $@\n";
   return $dbis;
@@ -100,13 +117,6 @@ sub _deploy_schema {
   );
   my $fake_sql = $fake->translate( \( nfreeze($schema) ) );
 #  warn "*** Fake schema: $fake_sql";
-
-#  my $target = SQL::Translator->new(
-#    parser => $db_type,
-#    producer => $db_type,
-#  );
-#  my $target_sql = $target->translate(\$fake_sql);
-#  warn "*** Target schema: $target_sql";
 
   my $diff = SQL::Translator::Diff::schema_diff(
     $existing->schema, $db_type, $fake->schema, $db_type

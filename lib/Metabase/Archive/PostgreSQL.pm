@@ -11,20 +11,6 @@ use Moose;
 with 'Metabase::Backend::PostgreSQL';
 with 'Metabase::Archive::SQL';
 
-sub _build__blob_field_params {
-  return {
-    data_type => 'text'
-  };
-}
-
-sub _build__guid_field_params {
-  return {
-    data_type => 'uuid'
-  }
-}
-
-sub _munge_guid { return $_[1] }
-
 1;
 
 __END__
