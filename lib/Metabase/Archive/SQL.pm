@@ -29,6 +29,7 @@ use SQL::Translator::Schema::Constants;
 use SQL::Translator::Utils qw/normalize_name/;
 use Try::Tiny;
 
+with 'Metabase::Backend::SQL';
 with 'Metabase::Archive';
 
 has 'compressed' => (
