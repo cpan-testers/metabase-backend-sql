@@ -14,7 +14,7 @@ use Moose::Util::TypeConstraints;
 use Metabase::Index::SQLite;
 
 with 'Metabase::Backend::SQLite';
-with 'Metabase::Index';
+with 'Metabase::Index' => { -excludes => 'exists' };
 
 subtype 'IndexShardSize', # XXX should refactor with Archive one
     as 'Int',
@@ -80,6 +80,15 @@ sub _shard_key {
   else {
     return scalar "0"x($digits==1 ? 2 : $digits);
   }
+}
+
+# override from role to target query at right shard
+sub exists {
+    my ($self, $guid) = @_;
+    my $key = $self->_shard_key($guid);
+    my $shard = $self->_get_shard($key);
+    # if desired guid in upper case, fix it
+    return scalar @{ $shard->search(-where => [-eq =>'core.guid'=>lc $guid])};
 }
 
 sub add {
