@@ -16,7 +16,7 @@ with 'Metabase::Archive';
 
 subtype 'ShardSize',
     as 'Int',
-    where { $_ > 0 && $_ < 9 },
+    where { $_ > 0 && $_ < 8 },
     message { "The number you provided, $_, was not between 1 and 8" };
 
 has shard_digits => (
@@ -60,7 +60,7 @@ sub _create_shard {
 
 sub _shard_key {
   my ($self, $guid) = @_;
-  return substr $guid, (8-$self->shard_digits), $self->shard_digits;
+  return substr $guid, (7-$self->shard_digits), $self->shard_digits;
 }
 
 sub store {

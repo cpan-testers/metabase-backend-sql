@@ -333,6 +333,41 @@ sub query {
   );
 }
 
+# XXX evil hackery to allow shards to give us ordering info
+sub _shard_query {
+  my ( $self, %spec) = @_;
+  my $spec = \%spec;
+
+  my $select;
+  if ( defined $spec->{-order} and ref $spec->{-order} eq 'ARRAY') {
+    my @clauses;
+    my @order = @{$spec->{-order}};
+    while ( @order ) {
+      my ($dir, $field) = splice( @order, 0, 2);
+      $field = $self->_quote_field( $field );
+      $dir =~ s/^-//;
+      $dir = uc $dir;
+      push @clauses, $field;
+    }
+    $select = "select " . join(", ", "core.guid", @clauses);
+  }
+  else {
+    $select = "select core.guid";
+  }
+
+  my ($sql, $limit) = $self->_get_search_sql($select, \%spec);
+
+  return Data::Stream::Bulk::Nil->new
+    unless $sql;
+
+#  warn "QUERY: $sql\n";
+  my $result = $self->dbis->query($sql);
+
+  return Data::Stream::Bulk::Array->new(
+    array => [ $result->arrays ]
+  );
+}
+
 sub delete {
     my ( $self, $guid ) = @_;
 
