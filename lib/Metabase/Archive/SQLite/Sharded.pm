@@ -50,9 +50,12 @@ sub _create_shard {
   else {
     $filename .= "_$key";
   }
-  my $archive = Metabase::Archive::SQLite->new(
+  my %args = (
     filename => $filename,
+    ($self->has_page_size ? ( page_size => $self->page_size ) : ()),
+    ($self->has_cache_size ? ( cache_size => $self->cache_size ) : ()),
   );
+  my $archive = Metabase::Archive::SQLite->new( %args );
   $archive->initialize;
   $self->_set_shard($key, $archive);
   return $archive;

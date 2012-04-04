@@ -21,9 +21,21 @@ has 'filename' => (
 );
 
 has 'synchronous' => (
-    is      => 'rw',
+    is      => 'ro',
     isa     => 'Bool',
     default => 0,
+);
+
+has 'page_size' => (
+    is      => 'ro',
+    isa     => 'Int',
+    predicate => 'has_page_size',
+);
+
+has 'cache_size' => (
+    is      => 'ro',
+    isa     => 'Int',
+    predicate => 'has_cache_size',
 );
 
 sub _build_dsn {
@@ -43,6 +55,12 @@ around _build_dbis => sub {
   my $dbis = $self->$orig;
   my $toggle = $self->synchronous ? "ON" : "OFF";
   $dbis->query("PRAGMA synchronous = $toggle");
+  for my $pragma ( qw/page_size cache_size/ ) {
+    my $pred  = "has_$pragma";
+    if ( $self->$pred ) {
+      $dbis->query("PRAGMA $pragma = " . $self->$pragma);
+    }
+  }
   return $dbis;
 };
 
