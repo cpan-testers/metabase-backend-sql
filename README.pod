@@ -1,0 +1,78 @@
+=head1 NAME
+
+Metabase::Backend::SQLite - Metabase backend implemented using SQLite
+
+=head1 VERSION
+
+version 0.001
+
+=head1 SYNOPSIS
+
+XXX consolidate synopses from modules
+
+=head1 DESCRIPTION
+
+This distribution provides a backend for L<Metabase> using SQLite.
+There are two modules included, L<Metabase::Index::SQLite> and
+L<Metabase::Archive::SQLite>.  They can be used separately or together (see
+L<Metabase::Librarian> for details).
+
+The L<Metabase::Backend::SQLite> module is a L<Moose::Role> that provides
+common attributes and private helpers and is not intended to be used directly.
+
+Common attributes are described further below.
+
+=head1 ATTRIBUTES
+
+=head2 filename
+
+Path to an SQLite database
+
+=head2 synchronous
+
+Controls how SQLite should set the C<synchronous> pragma.  Defaults to false,
+which is faster, but less safe.
+
+=for Pod::Coverage method_names_here
+
+=for :stopwords cpan testmatrix url annocpan anno bugtracker rt cpants kwalitee diff irc mailto metadata placeholders
+
+=head1 SUPPORT
+
+=head2 Bugs / Feature Requests
+
+Please report any bugs or feature requests by email to C<bug-metabase-backend-sqlite at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/Public/Dist/Display.html?Name=Metabase-Backend-SQLite>. You will be automatically notified of any
+progress on the request by the system.
+
+=head2 Source Code
+
+This is open source software.  The code repository is available for
+public review and contribution under the terms of the license.
+
+L<https://github.com/dagolden/metabase-backend-sql>
+
+  git clone https://github.com/dagolden/metabase-backend-sql.git
+
+=head1 AUTHORS
+
+=over 4
+
+=item *
+
+David Golden <dagolden@cpan.org>
+
+=item *
+
+Leon Brocard <acme@astray.org>
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2011 by David Golden.
+
+This is free software, licensed under:
+
+  The Apache License, Version 2.0, January 2004
+
