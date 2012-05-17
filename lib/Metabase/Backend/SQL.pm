@@ -154,12 +154,45 @@ sub _deploy_schema {
 
 =head1 SYNOPSIS
 
-XXX consolidate synopses from modules
+  # SQLite
+
+  require Metabase::Archive::SQLite;
+  require Metabase::Index::SQLite;
+
+  my $archive = Metabase::Archive::SQLite->new(
+    filename => $sqlite_file,
+  );
+
+  my $index = Metabase::Index::SQLite->new(
+    filename => $sqlite_file,
+  );
+
+  # PostgreSQL
+
+  use Metabase::Archive::PostgreSQL;
+  use Metabase::Index::PostgreSQL;
+
+  my $archive = Metabase::Archive::PostgreSQL->new(
+    db_name => "cpantesters",
+    db_user => "johndoe",
+    db_pass => "PaSsWoRd",
+  );
+
+  my $index = Metabase::Index::PostgreSQL->new(
+    db_name => "cpantesters",
+    db_user => "johndoe",
+    db_pass => "PaSsWoRd",
+  );
 
 =head1 DESCRIPTION
 
-This role provides common attributes for SQL-based Metabase backends.
-It is not intended to be used directly.
+This distribution contains implementations of L<Metabase::Archive> and
+L<Metabase::Index> using SQL databases.  >See L<Metabase::Backend::SQLite> or
+L<Metabase::Backend::PostgreSQL> for details about specific implementations.
+
+The main module, itself, is merely a Moose role that provides common attributes
+for all the SQL-based Metabase backends.  It is not intended to be used
+directly by end-users.
 
 =attr dsn
 

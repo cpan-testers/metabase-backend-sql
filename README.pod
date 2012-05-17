@@ -1,6 +1,6 @@
 =head1 NAME
 
-Metabase::Backend::SQLite - Metabase backend implemented using SQLite
+Metabase::Backend::SQL - Metabase backend role for SQL-based backends
 
 =head1 VERSION
 
@@ -8,42 +8,97 @@ version 0.001
 
 =head1 SYNOPSIS
 
-XXX consolidate synopses from modules
+  # SQLite
+
+  require Metabase::Archive::SQLite;
+  require Metabase::Index::SQLite;
+
+  my $archive = Metabase::Archive::SQLite->new(
+    filename => $sqlite_file,
+  );
+
+  my $index = Metabase::Index::SQLite->new(
+    filename => $sqlite_file,
+  );
+
+  # PostgreSQL
+
+  use Metabase::Archive::PostgreSQL;
+  use Metabase::Index::PostgreSQL;
+
+  my $archive = Metabase::Archive::PostgreSQL->new(
+    db_name => "cpantesters",
+    db_user => "johndoe",
+    db_pass => "PaSsWoRd",
+  );
+
+  my $index = Metabase::Index::PostgreSQL->new(
+    db_name => "cpantesters",
+    db_user => "johndoe",
+    db_pass => "PaSsWoRd",
+  );
 
 =head1 DESCRIPTION
 
-This distribution provides a backend for L<Metabase> using SQLite.
-There are two modules included, L<Metabase::Index::SQLite> and
-L<Metabase::Archive::SQLite>.  They can be used separately or together (see
-L<Metabase::Librarian> for details).
+This distribution contains implementations of L<Metabase::Archive> and
+L<Metabase::Index> using SQL databases.  >See L<Metabase::Backend::SQLite> or
+L<Metabase::Backend::PostgreSQL> for details about specific implementations.
 
-The L<Metabase::Backend::SQLite> module is a L<Moose::Role> that provides
-common attributes and private helpers and is not intended to be used directly.
-
-Common attributes are described further below.
+The main module, itself, is merely a Moose role that provides common attributes
+for all the SQL-based Metabase backends.  It is not intended to be used
+directly by end-users.
 
 =head1 ATTRIBUTES
 
-=head2 filename
+=head2 dsn
 
-Path to an SQLite database
+Database connection string
 
-=head2 synchronous
+=head2 db_user
 
-Controls how SQLite should set the C<synchronous> pragma.  Defaults to false,
-which is faster, but less safe.
+Database username
+
+=head2 db_pass
+
+Database password
+
+=head2 db_type
+
+SQL::Translator sub-type for a given database.  E.g. "SQLite" or "PostgreSQL".
+
+=head2 dbis
+
+DBIx::Simple class connected to the database
+
+=head2 schema
+
+SQL::Translator::Schema class
 
 =for Pod::Coverage method_names_here
 
-=for :stopwords cpan testmatrix url annocpan anno bugtracker rt cpants kwalitee diff irc mailto metadata placeholders
+=head1 REQUIRED METHODS
+
+The following builders must be provided by consuming classes.
+
+  _build_dsn        # a DSN string for DBI
+  _build_db_user    # a username for DBI
+  _build_db_pass    # a password for DBI
+  _build_db_type    # a SQL::Translator type for the DB vendor
+
+The following method must be provided to modify the output of
+SQL::Translator::Diff to fix up any dialect quirks
+
+  _fixup_sql_diff
+
+=for :stopwords cpan testmatrix url annocpan anno bugtracker rt cpants kwalitee diff irc mailto metadata placeholders metacpan
 
 =head1 SUPPORT
 
 =head2 Bugs / Feature Requests
 
-Please report any bugs or feature requests by email to C<bug-metabase-backend-sqlite at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/Public/Dist/Display.html?Name=Metabase-Backend-SQLite>. You will be automatically notified of any
-progress on the request by the system.
+Please report any bugs or feature requests through the issue tracker
+at L<http://rt.cpan.org/Public/Dist/Display.html?Name=Metabase-Backend-SQL>.
+You will be notified automatically of any progress on your issue.
 
 =head2 Source Code
 

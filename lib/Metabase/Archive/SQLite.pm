@@ -19,21 +19,18 @@ __END__
 
 =head1 SYNOPSIS
 
-  require Metabase::Archive::SQLite;
+  use Metabase::Archive::SQLite;
 
-  $archive = Metabase::Archive::SQLite->new(
+  my $archive = Metabase::Archive::SQLite->new(
     filename => $sqlite_file,
   ); 
 
 =head1 DESCRIPTION
 
-Store facts in a SQLite database.
+This is an implementation of the L<Metabase::Archive::SQL> role using SQLite.
 
 =head1 USAGE
 
 See L<Metabase::Archive> and L<Metabase::Librarian>.
-
-TODO: document optional C<compressed> option (default 1), C<synchronized>
-option and C<schema> option (sensible default provided).
 
 =cut

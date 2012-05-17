@@ -19,7 +19,7 @@ sub _build_index {
     filename => catfile( $self->tempdir, "test-metabase.sqlite" ),
     shard_digits => 1,
   );
-  diag "Initializing index shards (please wait)";
+#  diag "Initializing index shards (please wait)";
   $index->initialize(
     [ qw/Metabase::Test::Fact/ ],
     [ qw/Metabase::Resource::cpan::distfile/ ],

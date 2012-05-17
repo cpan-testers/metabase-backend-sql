@@ -42,19 +42,19 @@ op_not op_or op_and
 
   use Metabase::Index::PostgreSQL;
 
-  Metabase::Index::PostgreSQL->new(
-    db_name => 'cpantesters',
+  my $index = Metabase::Index::PostgreSQL->new(
+    db_name => "cpantesters",
     db_user => "johndoe",
     db_pass => "PaSsWoRd",
   );
 
 =head1 DESCRIPTION
 
-This is an implementation of the L<Metabase::Index::SQL> role using SQLite.
+This is an implementation of the L<Metabase::Index::SQL> role using PostgreSQL.
 
 =head1 USAGE
 
-See below for constructor attributes.  See L<Metabase::Index>,
-L<Metabase::Query> and L<Metabase::Librarian> for details on usage.
+See L<Metabase::Backend::PostgreSQL>, L<Metabase::Index> and
+L<Metabase::Librarian>.
 
 =cut

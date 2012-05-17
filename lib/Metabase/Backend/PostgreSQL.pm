@@ -75,7 +75,20 @@ sub _unmunge_guid { lc return $_[1] }
 
 =head1 SYNOPSIS
 
-XXX consolidate synopses from modules
+  use Metabase::Archive::PostgreSQL;
+  use Metabase::Index::PostgreSQL;
+
+  my $archive = Metabase::Archive::PostgreSQL->new(
+    db_name => "cpantesters",
+    db_user => "johndoe",
+    db_pass => "PaSsWoRd",
+  );
+
+  my $index = Metabase::Index::PostgreSQL->new(
+    db_name => "cpantesters",
+    db_user => "johndoe",
+    db_pass => "PaSsWoRd",
+  );
 
 =head1 DESCRIPTION
 

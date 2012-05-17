@@ -40,10 +40,10 @@ op_not op_or op_and
 
 =head1 SYNOPSIS
 
-  use Metabase::Index::SimpleDB;
+  use Metabase::Index::SQLite;
 
-  Metabase::Index:SimpleDB->new(
-    filename => '/tmp/cpantesters.sqlite',
+  my $index = Metabase::Index:SQLite->new(
+    filename => $sqlite_file,
   );
 
 =head1 DESCRIPTION
@@ -52,7 +52,6 @@ This is an implementation of the L<Metabase::Index::SQL> role using SQLite.
 
 =head1 USAGE
 
-See below for constructor attributes.  See L<Metabase::Index>,
-L<Metabase::Query> and L<Metabase::Librarian> for details on usage.
+See L<Metabase::Index>, L<Metabase::Query> and L<Metabase::Librarian>.
 
 =cut

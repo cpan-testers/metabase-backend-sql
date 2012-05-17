@@ -25,7 +25,7 @@ use Try::Tiny;
 use Metabase::Fact;
 
 with 'Metabase::Backend::SQL';
-with 'Metabase::Index';
+with 'Metabase::Index' => { -version => 1.000 };
 
 has typemap => (
   is => 'ro',
@@ -536,9 +536,9 @@ sub op_and {
 
 __END__
 
-=for Pod::Coverage::TrustPod add query delete count
+=for Pod::Coverage::TrustPod add query delete count initialize
 translate_query op_eq op_ne op_gt op_lt op_ge op_le op_between op_like
-op_not op_or op_and
+op_not op_or op_and PRIMARY_KEY
 
 =head1 SYNOPSIS
 
@@ -555,9 +555,10 @@ op_not op_or op_and
 
 =head1 DESCRIPTION
 
-This is a role that combines the L<Metabase::Index> and L<Metabase::Query>
-roles using SQL semantics.  RDBMS vendor specific methods must be implemented
-by a Moose class consuming this role.
+This is a role that consumes the L<Metabase::Backend::SQL> role and implements
+implements the L<Metabase::Index> and L<Metabase::Query> roles generically
+using SQL semantics.  RDBMS vendor specific methods must be implemented by a
+Moose class consuming this role.
 
 The following methods must be implemented:
 

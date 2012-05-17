@@ -108,14 +108,29 @@ sub _unmunge_guid {
 
 =head1 SYNOPSIS
 
-XXX consolidate synopses from modules
+  require Metabase::Archive::SQLite;
+  require Metabase::Index::SQLite;
+
+  my $archive = Metabase::Archive::SQLite->new(
+    filename => $sqlite_file,
+  );
+
+  my $index = Metabase::Index::SQLite->new(
+    filename => $sqlite_file,
+  );
 
 =head1 DESCRIPTION
 
-This distribution provides a backend for L<Metabase> using SQLite.
-There are two modules included, L<Metabase::Index::SQLite> and
-L<Metabase::Archive::SQLite>.  They can be used separately or together (see
-L<Metabase::Librarian> for details).
+This distribution provides several backends for L<Metabase> using SQLite.
+
+=for :list
+* L<Metabase::Archive::SQLite>
+* L<Metabase::Archive::SQLite::Sharded>.  
+* L<Metabase::Index::SQLite>
+* L<Metabase::Index::SQLite::Sharded>.  
+
+They can be used separately or together (see L<Metabase::Librarian> for
+details).
 
 The L<Metabase::Backend::SQLite> module is a L<Moose::Role> that provides
 common attributes and private helpers and is not intended to be used directly.

@@ -30,7 +30,7 @@ use SQL::Translator::Utils qw/normalize_name/;
 use Try::Tiny;
 
 with 'Metabase::Backend::SQL';
-with 'Metabase::Archive';
+with 'Metabase::Archive' => { -version => 1.000 };
 
 has 'compressed' => (
   is      => 'rw',
@@ -123,7 +123,7 @@ sub extract {
 
 sub _extract_fact {
   my ($self, $json) = @_;
-  return undef unless $json;
+  return unless $json;
 
 #  if ( $self->compressed ) {
 #    $json    = uncompress($json);
@@ -189,6 +189,7 @@ sub iterator {
 __END__
 
 =for Pod::Coverage::TrustPod store extract delete iterator initialize
+PRIMARY_KEY
 
 =head1 SYNOPSIS
 
@@ -205,9 +206,9 @@ __END__
 
 =head1 DESCRIPTION
 
-This is a role that implements the L<Metabase::Archive> role generically for an
-SQL backend.  RDBMS vendor specific methods must be implemented by a Moose
-class consuming this role.
+This is a role that consumes the L<Metabase::Backend::SQL> role and implements
+the L<Metabase::Archive> role generically for an SQL backend.  RDBMS vendor
+specific methods must be implemented by a Moose class consuming this role.
 
 The following methods must be implemented:
 

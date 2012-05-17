@@ -116,14 +116,17 @@ __END__
 
 =head1 SYNOPSIS
 
-  require Metabase::Archive::SQLite::Sharded;
+  use Metabase::Archive::SQLite::Sharded;
 
-  $archive = Metabase::Archive::SQLite->new(
+  my $archive = Metabase::Archive::SQLite::Sharded->new(
     filename => $sqlite_file,
     shard_digits => 2,
   ); 
 
 =head1 DESCRIPTION
+
+This is an implementation of the L<Metabase::Archive::SQL> role using SQLite
+shards.
 
 SQLite stores a database entirely in a single file.  That starts to become
 slow as the size of the file gets large.  This Metabase::Archive shards

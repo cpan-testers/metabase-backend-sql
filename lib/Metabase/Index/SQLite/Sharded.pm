@@ -192,7 +192,7 @@ sub _sort_results {
     }
     return 0; # everything was equal
   };
-  return sort { $sorter->($a,$b) } @$results;
+  return sort { $sorter->($a,$b) } @$results; ## no critic
 }
 
 # Fake these to satisfy the role -- we actually delegate everything out
@@ -214,18 +214,24 @@ sub translate_query { }
 
 __END__
 
-=for Pod::Coverage::TrustPod 
+=for Pod::Coverage::TrustPod add query delete count exists initialize
+translate_query op_eq op_ne op_gt op_lt op_ge op_le op_between op_like
+op_not op_or op_and
+
 
 =head1 SYNOPSIS
 
-  require Metabase::Index::SQLite::Sharded;
+  use Metabase::Index::SQLite::Sharded;
 
-  $archive = Metabase::Index::SQLite->new(
+  my $index = Metabase::Index::SQLite::Sharded->new(
     filename => $sqlite_file,
     shard_digits => 2,
   ); 
 
 =head1 DESCRIPTION
+
+This is an implementation of the L<Metabase::Index::SQL> role using SQLite
+shards.
 
 SQLite stores a database entirely in a single file.  That starts to become
 slow as the size of the file gets large.  This Metabase::Index shards
