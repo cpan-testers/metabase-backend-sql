@@ -135,6 +135,7 @@ sub _deploy_schema {
     DBIx::RunSQL->create(
       dbh => $self->dbh,
       sql => $sqlfile,
+      verbose_handler => sub { return },
     );
     $self->dbh->disconnect;
   }
