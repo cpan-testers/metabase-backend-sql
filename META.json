@@ -88,47 +88,47 @@
    "provides" : {
       "Metabase::Archive::PostgreSQL" : {
          "file" : "lib/Metabase/Archive/PostgreSQL.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Archive::SQL" : {
          "file" : "lib/Metabase/Archive/SQL.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Archive::SQLite" : {
          "file" : "lib/Metabase/Archive/SQLite.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Archive::SQLite::Sharded" : {
          "file" : "lib/Metabase/Archive/SQLite/Sharded.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Backend::PostgreSQL" : {
          "file" : "lib/Metabase/Backend/PostgreSQL.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Backend::SQL" : {
          "file" : "lib/Metabase/Backend/SQL.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Backend::SQLite" : {
          "file" : "lib/Metabase/Backend/SQLite.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Index::PostgreSQL" : {
          "file" : "lib/Metabase/Index/PostgreSQL.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Index::SQL" : {
          "file" : "lib/Metabase/Index/SQL.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Index::SQLite" : {
          "file" : "lib/Metabase/Index/SQLite.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       },
       "Metabase::Index::SQLite::Sharded" : {
          "file" : "lib/Metabase/Index/SQLite/Sharded.pm",
-         "version" : "0.001"
+         "version" : "1.000"
       }
    },
    "release_status" : "stable",
@@ -144,6 +144,6 @@
          "web" : "https://github.com/dagolden/metabase-backend-sql"
       }
    },
-   "version" : "0.001"
+   "version" : "1.000"
 }
 
