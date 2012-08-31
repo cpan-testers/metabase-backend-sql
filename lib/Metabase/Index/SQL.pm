@@ -118,9 +118,6 @@ sub initialize {
   # Core table
   my $table = $self->_table_from_meta( $self->_core_table, Metabase::Fact->core_metadata_types );
   my $pk = $table->get_field('guid');
-  $pk->is_nullable(0);
-  $pk->is_unique(1);
-  $pk->is_primary_key(1);
   while ( my ($k,$v) = each %{$self->_guid_field_params} ) {
     $pk->$k($v)
       if $pk->can($k);
