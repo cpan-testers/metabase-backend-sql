@@ -5,7 +5,7 @@ use warnings;
 package Metabase::Backend::SQLite;
 # ABSTRACT: Metabase backend implemented using SQLite
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use MooseX::Types::Path::Class;
 use Moose::Role;

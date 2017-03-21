@@ -5,7 +5,7 @@ use warnings;
 package Metabase::Archive::SQL;
 # ABSTRACT: Metabase archive backend role for common SQL actions
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use Moose::Role;
 use Moose::Util::TypeConstraints;

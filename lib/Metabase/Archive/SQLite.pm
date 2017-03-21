@@ -5,7 +5,7 @@ use warnings;
 package Metabase::Archive::SQLite;
 # ABSTRACT: Metabase storage using SQLite
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use Moose;
 

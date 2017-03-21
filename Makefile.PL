@@ -64,7 +64,7 @@ my %WriteMakefileArgs = (
     "lib" => 0,
     "re" => 0
   },
-  "VERSION" => "1.001",
+  "VERSION" => "1.002",
   "test" => {
     "TESTS" => "t/*.t t/postgres/*.t t/sharded/*.t t/sqlite/*.t"
   }

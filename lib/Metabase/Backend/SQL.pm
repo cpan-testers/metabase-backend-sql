@@ -5,7 +5,7 @@ use warnings;
 package Metabase::Backend::SQL;
 # ABSTRACT: Metabase backend role for SQL-based backends
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use Class::Load qw/load_class try_load_class/;
 use SQL::Translator::Schema;

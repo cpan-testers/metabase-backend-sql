@@ -5,7 +5,7 @@ use warnings;
 package Metabase::Backend::PostgreSQL;
 # ABSTRACT: Metabase backend implemented using PostgreSQL
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use Moose::Role;
 use namespace::autoclean;

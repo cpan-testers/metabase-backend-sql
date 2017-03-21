@@ -5,7 +5,7 @@ use warnings;
 package Metabase::Archive::SQLite::Sharded;
 # ABSTRACT: Metabase storage using multiple SQLite databases
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use Moose;
 use Data::Stream::Bulk::Callback;

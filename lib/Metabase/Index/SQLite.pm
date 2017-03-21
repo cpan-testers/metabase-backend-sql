@@ -5,7 +5,7 @@ use warnings;
 package Metabase::Index::SQLite;
 # ABSTRACT: Metabase index backend using SQLite
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use Moose;
 
