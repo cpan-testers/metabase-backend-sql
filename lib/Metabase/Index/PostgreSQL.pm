@@ -4,7 +4,8 @@ use warnings;
 
 package Metabase::Index::PostgreSQL;
 # ABSTRACT: Metabase index backend using SQLite
-# VERSION
+
+our $VERSION = '1.001';
 
 use Moose;
 

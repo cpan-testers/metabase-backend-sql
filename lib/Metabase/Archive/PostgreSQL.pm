@@ -4,7 +4,8 @@ use warnings;
 
 package Metabase::Archive::PostgreSQL;
 # ABSTRACT: Metabase archive backend using PostgreSQL
-# VERSION
+
+our $VERSION = '1.001';
 
 use Moose;
 

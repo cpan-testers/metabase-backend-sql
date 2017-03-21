@@ -3,8 +3,9 @@ use strict;
 use warnings;
 
 package Metabase::Backend::PostgreSQL;
-# VERSION
 # ABSTRACT: Metabase backend implemented using PostgreSQL
+
+our $VERSION = '1.001';
 
 use Moose::Role;
 use namespace::autoclean;

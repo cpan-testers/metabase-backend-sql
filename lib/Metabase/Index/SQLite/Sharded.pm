@@ -4,7 +4,8 @@ use warnings;
 
 package Metabase::Index::SQLite::Sharded;
 # ABSTRACT: Metabase index using multiple SQLite databases
-# VERSION
+
+our $VERSION = '1.001';
 
 use Moose;
 use Data::Stream::Bulk::Callback;

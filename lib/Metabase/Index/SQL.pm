@@ -4,7 +4,8 @@ use warnings;
 
 package Metabase::Index::SQL;
 # ABSTRACT: Metabase index backend role for common SQL actions
-# VERSION
+
+our $VERSION = '1.001';
 
 use Moose::Role;
 

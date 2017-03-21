@@ -3,8 +3,9 @@ use strict;
 use warnings;
 
 package Metabase::Backend::SQLite;
-# VERSION
 # ABSTRACT: Metabase backend implemented using SQLite
+
+our $VERSION = '1.001';
 
 use MooseX::Types::Path::Class;
 use Moose::Role;
